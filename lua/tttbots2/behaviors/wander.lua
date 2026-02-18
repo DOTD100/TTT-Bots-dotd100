@@ -30,7 +30,7 @@ end
 
 --- Called when the behavior's last state is running
 function Wander.OnRunning(bot)
-    if not bot.wander then return Wander.OnStart() end -- force reboot :P
+    if not bot.wander then return Wander.OnStart(bot) end -- force reboot :P
 
     local hasExpired = Wander.HasExpired(bot)
     if hasExpired then return STATUS.SUCCESS end
@@ -84,7 +84,7 @@ function Wander.HasExpired(bot)
     if not wander then return true end
     local ctime = CurTime()
     local DIST_CLOSE_THRESH = 100
-    local closeEnough = (ctime > wander.timeEndClose) and (bot:GetPos():Distance(wander.targetPos))
+    local closeEnough = (ctime > wander.timeEndClose) and (bot:GetPos():Distance(wander.targetPos) < DIST_CLOSE_THRESH)
     return closeEnough or (wander.timeEndFar < ctime)
 end
 

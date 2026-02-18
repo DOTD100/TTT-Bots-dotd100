@@ -339,19 +339,18 @@ function BotInventory:AutoManageInventory()
     local w_primary, primary = self:GetPrimary()
     local w_secondary, secondary = self:GetSecondary()
 
-    -- local isAttacking = self.bot.attackTarget ~= nil
-
-    local hash = {
-        [self.EquipSpecial] = special,
-        [self.EquipPrimary] = primary,
-        [self.EquipSecondary] = secondary,
-        -- [self.EquipMelee] = self:HasNoWeaponAvailable(false),
+    -- Use an ordered list so we always prefer special > primary > secondary
+    local priorityList = {
+        { func = self.EquipSpecial,   info = special },
+        { func = self.EquipPrimary,   info = primary },
+        { func = self.EquipSecondary, info = secondary },
     }
 
     local foundGun = false
-    for func, wepInfo in pairs(hash) do
-        if wepInfo.ammo > 0 or wepInfo.clip > 0 then
-            func(self)
+    for _, entry in ipairs(priorityList) do
+        local wepInfo = entry.info
+        if wepInfo and (wepInfo.ammo > 0 or wepInfo.clip > 0) then
+            entry.func(self)
             foundGun = true
             break
         end
@@ -522,11 +521,11 @@ function BotInventory:GetBySlot(slot)
 end
 
 function BotInventory:HasPrimary()
-    return self:GetByKindRaw(BotInventory.kindHash.primary) == nil
+    return self:GetByKindRaw(BotInventory.kindHash.primary) ~= nil
 end
 
 function BotInventory:HasSecondary()
-    return self:GetByKindRaw(BotInventory.kindHash.secondary) == nil
+    return self:GetByKindRaw(BotInventory.kindHash.secondary) ~= nil
 end
 
 ---Returns the first Weapon in the bots weapons list of int "kind"
@@ -605,7 +604,7 @@ end
 function BotInventory:EquipSpecial()
     local firstSpecial = self:GetSpecialPrimary()
     if not (firstSpecial and IsValid(firstSpecial)) then return false end
-    self.bot:SelectWeapon(firstSpecial)
+    self.bot:SelectWeapon(firstSpecial:GetClass())
     return true
 end
 

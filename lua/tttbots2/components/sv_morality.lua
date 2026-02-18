@@ -394,9 +394,9 @@ function BotMorality:OnWitnessHurt(victim, attacker, healthRemaining, damageTake
 end
 
 function BotMorality:OnWitnessFireBullets(attacker, data, angleDiff)
-    local angleDiffPercent = angleDiff / 30
-    local sus = -1 * (1 - angleDiffPercent) / 4 -- Sus decreases as angle difference grows
-    if sus < 1 then sus = 0.1 end
+    local angleDiffPercent = math.Clamp(angleDiff / 30, 0, 1)
+    local sus = (1 - angleDiffPercent) / 4 -- Sus increases as angle difference shrinks (shots closer to us)
+    if sus < 0.1 then sus = 0.1 end
 
     -- print(attacker, data, angleDiff, angleDiffPercent, sus)
     if sus > 3 then
@@ -579,7 +579,7 @@ local function personalSpace(bot)
             bot.personalSpaceTbl[other] = math.max(time - 0.5, 0)
         end
 
-        if bot.personalSpaceTbl[other] or 0 <= 0 then
+        if (bot.personalSpaceTbl[other] or 0) <= 0 then
             bot.personalSpaceTbl[other] = nil
         end
 

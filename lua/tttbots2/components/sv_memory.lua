@@ -155,8 +155,9 @@ end
 
 --- Simulates radar scanning the position of ply
 function Memory:UpdateRadar(ply)
-    if self.UseRadar and self.tick % 300 ~= 69 then return end -- Nice
-    if not TTTBots.Roles.GetRoleFor(ply):GetCanHaveRadar() then return end
+    if not self.UseRadar then return end -- Bot doesn't use radar
+    if self.tick % 300 ~= 69 then return end -- Nice. Throttle to once every ~300 ticks.
+    if not TTTBots.Roles.GetRoleFor(self.bot):GetCanHaveRadar() then return end -- Bot's role can't have radar
     if not TTTBots.Lib.IsPlayerAlive(ply) then return end
 
     local pos = ply:GetPos()

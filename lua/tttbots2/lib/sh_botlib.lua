@@ -735,7 +735,11 @@ function TTTBots.Lib.GetAllVisible(pos, nonTeammatesOnly, caller)
     end
     local witnesses = {}
     for _, ply in ipairs(player.GetAll()) do
-        if TTTBots.Lib.IsPlayerAlive(ply) and (nonTeammatesOnly and caller and not TTTBots.Roles.IsAllies(caller, ply)) then
+        if TTTBots.Lib.IsPlayerAlive(ply) then
+            if nonTeammatesOnly and caller then
+                -- Only include non-allies
+                if TTTBots.Roles.IsAllies(caller, ply) then continue end
+            end
             local sawthat = ply:VisibleVec(pos)
             if sawthat then
                 table.insert(witnesses, ply)

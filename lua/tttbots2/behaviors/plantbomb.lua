@@ -154,11 +154,17 @@ function PlantBomb.OnRunning(bot)
     end
 
     -- We are safe to plant.
-    bot:SelectWeapon("weapon_ttt_c4")
+    -- Instead of using StartAttack() (which opens a VGUI menu for players and does nothing for bots),
+    -- we directly drop and arm the C4 programmatically.
     locomotor:LookAt(spot)
-    locomotor:StartAttack()
 
-    return STATUS.RUNNING -- This behavior depends on the validation call ending it.
+    local success = PlantBomb.PlaceAndArmC4(bot, spot)
+    if success then
+        return STATUS.SUCCESS
+    else
+        bot.bombFailCounter = (bot.bombFailCounter or 0) + 1
+        return STATUS.FAILURE
+    end
 end
 
 --- Called when the behavior returns a success state
@@ -192,6 +198,40 @@ function PlantBomb.ArmNearbyBomb(bot)
     return false
 end
 
+--- Directly places and arms a C4 at the target position. This bypasses the VGUI menu
+--- that would normally open when a player uses the C4 weapon, which bots cannot interact with.
+---@param bot Bot
+---@param pos Vector The position to place the C4
+---@return boolean success Whether the C4 was placed and armed successfully
+function PlantBomb.PlaceAndArmC4(bot, pos)
+    -- Remove the C4 weapon from the bot's inventory
+    local c4Wep = bot:GetWeapon("weapon_ttt_c4")
+    if not IsValid(c4Wep) then return false end
+    bot:StripWeapon("weapon_ttt_c4")
+
+    -- Create the C4 entity in the world
+    local c4 = ents.Create("ttt_c4")
+    if not IsValid(c4) then
+        -- If entity creation failed, give the weapon back
+        bot:Give("weapon_ttt_c4")
+        return false
+    end
+
+    c4:SetPos(pos + Vector(0, 0, 4)) -- Slightly above ground to avoid clipping
+    c4:Spawn()
+
+    -- Arm the C4 with a random timer between 30 and 90 seconds
+    local armTime = math.random(30, 90)
+    c4:Arm(bot, armTime)
+
+    local chatter = bot:BotChatter()
+    if chatter then
+        chatter:On("BombArmed", {}, true)
+    end
+
+    return true
+end
+
 --- Called when the behavior ends
 function PlantBomb.OnEnd(bot)
     bot.bombPlantSpot = nil
@@ -199,7 +239,6 @@ function PlantBomb.OnEnd(bot)
     local inventory = bot:BotInventory()
     inventory:ResumeAutoSwitch()
     locomotor:StopAttack()
-    PlantBomb.ArmNearbyBomb(bot)
 end
 
 -- This part of the code is referencing preevnting a bot trying to plant indefinitely (and thus failing)

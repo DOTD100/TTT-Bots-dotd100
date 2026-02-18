@@ -328,7 +328,7 @@ function BotLocomotor:IsTryingCrouch() return self.crouch end
 
 function BotLocomotor:IsTryingJump() return self.jump end
 
-function BotLocomotor:IsHalted() return not self.dontmove end
+function BotLocomotor:IsHalted() return self.dontmove end
 
 function BotLocomotor:GetLookGoal() return self.lookGoal end
 

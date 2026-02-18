@@ -138,6 +138,8 @@ function Follow.OnRunning(bot)
     local finalTarget = (distToPoint < 250 and bot:GetPos()) or bot.botFollowPoint
 
     loco:SetGoal(finalTarget)
+
+    return STATUS.RUNNING
 end
 
 --- Called when the behavior returns a success state
