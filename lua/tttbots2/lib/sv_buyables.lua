@@ -43,26 +43,60 @@ function TTTBots.Buyables.AddBuyableToRole(buyable, roleString)
     table.sort(buyables_role[roleString], function(a, b) return a.Priority > b.Priority end)
 end
 
+--- TEBN suppression state — shared with sh_weapons.lua's net.Start wrapper.
+--- When true, the net.Start wrapper in sh_weapons.lua blocks TEBN_ItemBought.
+TTTBots.Buyables._suppressTEBN = false
+
 ---Purchases any registered buyables for the given bot's rolestring. Returns a table of Buyables that were successfully purchased.
+---Uses the bot's actual in-game credits (TTT2) instead of a hardcoded allowance.
+---Suppresses Team Buy Equipment Notifications (TEBN) for all bot purchases.
 ---@param bot Bot
 ---@return table<Buyable>
 function TTTBots.Buyables.PurchaseBuyablesFor(bot)
     local roleString = bot:GetRoleStringRaw()
     local options = TTTBots.Buyables.GetBuyablesFor(roleString)
-    local creditAllowance = 2
     local purchased = {}
+
+    -- For TTT2 we read the bot's actual credits; for vanilla TTT we use a
+    -- local counter (same as the original 2-credit allowance).
+    local hasCreditSystem = bot.GetCredits ~= nil
+    local vanillaAllowance = 2
+
+    local function getCredits()
+        if hasCreditSystem then return bot:GetCredits() or 0 end
+        return vanillaAllowance
+    end
+
+    -- Suppress TEBN for all bot purchases
+    TTTBots.Buyables._suppressTEBN = true
 
     for i, option in pairs(options) do
         if option.TTT2 and not TTTBots.Lib.IsTTT2() then continue end                      -- for mod compat.
         if option.Class and not TTTBots.Lib.WepClassExists(option.Class) then continue end -- for mod compat.
-        if option.Price > creditAllowance then continue end
+        if option.Price > getCredits() then continue end
         if option.CanBuy and not option.CanBuy(bot) then continue end
         if option.RandomChance and math.random(1, option.RandomChance) ~= 1 then continue end
 
-        creditAllowance = creditAllowance - option.Price
         table.insert(purchased, option)
-        local buyfunc = option.BuyFunc or (function(ply) ply:Give(option.Class) end)
-        buyfunc(bot)
+
+        -- If the buyable has its own BuyFunc, it handles giving + credit deduction.
+        -- Otherwise, use the default Give path and deduct credits here.
+        local buyfunc = option.BuyFunc
+        if buyfunc then
+            buyfunc(bot)
+        else
+            bot:Give(option.Class)
+            -- Deduct credits for the default path
+            if bot.SubtractCredits then
+                bot:SubtractCredits(option.Price)
+            end
+        end
+
+        -- Track spending for vanilla TTT (no real credit system)
+        if not hasCreditSystem then
+            vanillaAllowance = vanillaAllowance - option.Price
+        end
+
         if option.OnBuy then option.OnBuy(bot) end
         if option.ShouldAnnounce then
             local chatter = bot:BotChatter()
@@ -70,6 +104,8 @@ function TTTBots.Buyables.PurchaseBuyablesFor(bot)
             chatter:On("Buy" .. option.Name, {}, option.AnnounceTeam or false)
         end
     end
+
+    TTTBots.Buyables._suppressTEBN = false
 
     return purchased
 end
@@ -84,7 +120,7 @@ function TTTBots.Buyables.RegisterBuyable(data)
         TTTBots.Buyables.AddBuyableToRole(data, roleString)
     end
 
-    if data.PrimaryWeapon then
+    if data.PrimaryWeapon and data.Class then
         TTTBots.Buyables.PrimaryWeapons[data.Class] = true
     end
 
@@ -107,3 +143,6 @@ end)
 
 -- Import default data
 include("tttbots2/data/sv_default_buyables.lua")
+
+-- Import role weapon shop data (self-registers buyables per role)
+include("tttbots2/data/sh_weapons.lua")

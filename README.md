@@ -10,7 +10,7 @@ This is a player bot addon for the Trouble in Terrorist Town game mode in Garry'
 
 It is designed to be as modular as possible, allowing easy customization and expansion. It is designed for TTT2 while being fully playable in regular TTT.
 
-📝 Note: Please stick to the main branch. Most other branches are eitherunstable or significantly behind.
+📝 Note: Please stick to the main branch. Most other branches are either unstable or significantly behind.
 
 ## Maps
 
@@ -32,13 +32,29 @@ This add-on supports a wide range of TTT2 roles. Here are some that have explici
 * Jester
 * Jackal
 * Sidekick
-* Hitman (needs work)
+* Hitman
+* Executioner
 * Serial Killer
 * Survivalist
 * Bodyguard
 * Sheriff
 * Deputy
 * Drunk
+* Pyschopath
+* Bandit
+* Roider
+* Brainwasher/Slave
+* Shanker
+* Hidden
+* Fuse
+* Beggar
+* Necromancer/Zombie
+* Pirate Captain/Pirate
+* Mesmerist
+* Cursed
+* Swapper
+* Loot Goblin
+* Amnesiac
 
 The mod also auto-generates compatibility with custom roles, but it is imperfect. It does not comprehend most 'public killer' roles (e.g., 'Speedrunner').
 

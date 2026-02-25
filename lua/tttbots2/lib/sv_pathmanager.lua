@@ -539,11 +539,11 @@ function TTTBots.PathManager.RequestPath(owner, startPos, finishPos, isAreas)
     
     if not startArea then
         ErrorNoHaltWithStack("Start nil")
-        assert(startArea, "Start area is nil. Either you didn't provide one or there isn't a nav nearby.")
+        return "error", false, "start_nil"
     end
     if not finishArea then
         ErrorNoHaltWithStack("Finish nil")
-        assert(finishArea, "Finish area is nil. Either you didn't provide one or there isn't a nav nearby.")
+        return "error", false, "finish_nil"
     end
 
     local pathID = startArea:GetID() .. "to" .. finishArea:GetID()

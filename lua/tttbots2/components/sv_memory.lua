@@ -479,6 +479,15 @@ function Memory:HandleSound(info, soundData)
         personality:OnPressureEvent(hashedName)
     end
 
+    -- Sound-based position tracking: if we heard a gunshot/death/explosion from a
+    -- known player, update our memory with their suspected position even if we can't
+    -- see them. This lets bots path toward the source of gunfire.
+    if tbl.ply and IsValid(tbl.ply) and tbl.ply ~= bot and tbl.sourceIsPly then
+        if info.SoundName == "Gunshot" or info.SoundName == "Death" or info.SoundName == "Explosion" then
+            self:UpdateKnownPositionFor(tbl.ply, soundPos)
+        end
+    end
+
     return true
 end
 
@@ -487,11 +496,13 @@ function Memory:CullSoundMemory()
     local recentSounds = self.recentSounds
     if not recentSounds then return end
     local curTime = CurTime()
-    for i, sound in ipairs(recentSounds) do
+    for i = #recentSounds, 1, -1 do
+        local sound = recentSounds[i]
         local timeSince = curTime - sound.time
-        if timeSince > 5 then
+        -- Keep sounds longer so bots remember ongoing firefights
+        if timeSince > 15 then
             table.remove(recentSounds, i)
-        elseif timeSince > 0.5 and lib.CanSeeArc(self.bot, sound.pos, 75) then
+        elseif timeSince > 2 and lib.CanSeeArc(self.bot, sound.pos, 75) then
             table.remove(recentSounds, i) -- we don't need to remember sounds that we can see the source of
         end
     end
@@ -511,6 +522,60 @@ end
 ---@return table<table> recentSounds
 function Memory:GetRecentSounds()
     return self.recentSounds
+end
+
+--- Count how many gunshot/explosion sounds were heard from roughly the same area
+--- within the last N seconds. Used to detect active gunfights.
+---@param withinSeconds number Time window (default 8)
+---@param clusterRadius number Max distance to group sounds (default 600)
+---@return table clusters Array of {pos, count, newest} for each cluster
+function Memory:GetGunfightClusters(withinSeconds, clusterRadius)
+    withinSeconds = withinSeconds or 8
+    clusterRadius = clusterRadius or 600
+    local curTime = CurTime()
+    local combatSounds = {}
+
+    for _, s in ipairs(self.recentSounds) do
+        if (s.sound == "Gunshot" or s.sound == "Explosion" or s.sound == "Death")
+           and (curTime - s.time) <= withinSeconds then
+            combatSounds[#combatSounds + 1] = s
+        end
+    end
+
+    -- Simple clustering: group sounds that are within clusterRadius of each other
+    local clusters = {}
+    local used = {}
+    for i, s in ipairs(combatSounds) do
+        if used[i] then continue end
+        local cluster = { pos = s.pos, count = 1, newest = s.time, sounds = { s } }
+        used[i] = true
+        for j, other in ipairs(combatSounds) do
+            if not used[j] and s.pos:Distance(other.pos) < clusterRadius then
+                cluster.count = cluster.count + 1
+                cluster.newest = math.max(cluster.newest, other.time)
+                cluster.sounds[#cluster.sounds + 1] = other
+                used[j] = true
+            end
+        end
+        -- Average position of the cluster
+        local avgPos = Vector(0, 0, 0)
+        for _, cs in ipairs(cluster.sounds) do
+            avgPos = avgPos + cs.pos
+        end
+        cluster.pos = avgPos / #cluster.sounds
+        clusters[#clusters + 1] = cluster
+    end
+
+    return clusters
+end
+
+--- Returns the most urgent gunfight cluster (most sounds), or nil if none.
+---@return table|nil cluster {pos, count, newest}
+function Memory:GetMostUrgentGunfight()
+    local clusters = self:GetGunfightClusters()
+    if #clusters == 0 then return nil end
+    table.sort(clusters, function(a, b) return a.count > b.count end)
+    return clusters[1]
 end
 
 timer.Create("TTTBots_CullSoundMemory", 1, 0, function()

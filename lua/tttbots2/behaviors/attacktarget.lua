@@ -209,8 +209,56 @@ function Attack.Engage(bot, targetPos)
     local loco = bot:BotLocomotor() ---@type CLocomotor
     loco.stopLookingAround = true
 
-    local tooFarToAttack = false --- Used to prevent attacking when we are using a melee weapon and are too far away
     local distToTarget = bot:GetPos():Distance(target:GetPos())
+
+    -- 🗡️ ASSASSIN KNIFE LOGIC: Bots with useKnives trait prefer backstabs
+    local isAssassin = bot:GetTraitBool("useKnives")
+    if isAssassin and target:IsPlayer() and distToTarget < 500 then
+        -- Check if we have a knife weapon
+        local knifeWep = nil
+        local knifeCandidates = { "weapon_ttt_knife", "weapon_ttt2_knife", "weapon_ttt_xknife" }
+        for _, cls in ipairs(knifeCandidates) do
+            if bot:HasWeapon(cls) then
+                knifeWep = bot:GetWeapon(cls)
+                break
+            end
+        end
+
+        if knifeWep and IsValid(knifeWep) then
+            -- Check if we're behind the target
+            local toBot = (bot:GetPos() - target:GetPos()):GetNormalized()
+            local targetFwd = target:GetForward()
+            toBot.z = 0
+            targetFwd.z = 0
+            toBot:Normalize()
+            targetFwd:Normalize()
+            local isBehind = targetFwd:Dot(toBot) < 0
+
+            if isBehind or distToTarget < 120 then
+                -- Switch to knife for the backstab
+                local activeWep = bot:GetActiveWeapon()
+                if not (IsValid(activeWep) and activeWep == knifeWep) then
+                    pcall(bot.SelectWeapon, bot, knifeWep:GetClass())
+                    inv:PauseAutoSwitch()
+                end
+                -- Refresh weapon info after switch
+                weapon = inv:GetHeldWeaponInfo()
+                if weapon then
+                    usingMelee = not weapon.is_gun
+                end
+            else
+                -- Not behind yet — use gun but try to flank
+                -- (Approach from behind by targeting a position behind the enemy)
+                local behindDir = -target:GetForward()
+                behindDir.z = 0
+                behindDir:Normalize()
+                local flankPos = target:GetPos() + behindDir * 100
+                loco:SetGoal(flankPos)
+            end
+        end
+    end
+
+    local tooFarToAttack = false --- Used to prevent attacking when we are using a melee weapon and are too far away
     if bot.wasPathing and not usingMelee then
         loco:StopMoving()
         bot.wasPathing = false
@@ -481,6 +529,9 @@ function Attack.OnEnd(bot)
     bot:SetAttackTarget(nil)
     bot:BotLocomotor().stopLookingAround = false
     bot:BotLocomotor():StopAttack()
+    -- Resume auto-switch in case an assassin trait bot paused it for knife usage
+    local inv = bot.components and bot.components.inventory
+    if inv then inv:ResumeAutoSwitch() end
 end
 
 local FOCUS_DECAY = 0.02

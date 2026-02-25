@@ -14,7 +14,7 @@ UseHealthStation.TargetClass = "ttt_health_station"
 local STATUS = TTTBots.STATUS
 
 function UseHealthStation.HasHealthStation(bot)
-    if not lib.GetConVarBool("plant_health") then return false end -- This behavior is disabled per the user's choice.
+    if not lib.GetConVarBool("healthstation") then return false end -- This behavior is disabled per the user's choice.
     return bot:HasWeapon("weapon_ttt_health_station")
 end
 
@@ -79,7 +79,7 @@ end
 
 function UseHealthStation.PlaceHealthStation(bot)
     local locomotor = bot:BotLocomotor()
-    bot:SelectWeapon("weapon_ttt_health_station")
+    pcall(bot.SelectWeapon, bot, "weapon_ttt_health_station")
     locomotor:StartAttack()
 end
 

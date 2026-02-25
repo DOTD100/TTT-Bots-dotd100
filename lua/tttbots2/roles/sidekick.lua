@@ -30,8 +30,8 @@ sidekick:SetBTree(bTree)
 sidekick:SetLovesTeammates(true)
 TTTBots.Roles.RegisterRole(sidekick)
 
--- Sidekick help master when shooting a victim
-hook.Add("TTTBotsOnWitnessFireBullets", "TTTBotsOnWitnessFireBullets", function(witness, attacker, data, angleDiff)
+-- Sidekick helps jackal when shooting a victim
+hook.Add("TTTBotsOnWitnessFireBullets", "TTTBots_SidekickWitnessFireBullets", function(witness, attacker, data, angleDiff)
     local attackerRole = attacker:GetRoleStringRaw()
     local witnessRole = witness:GetRoleStringRaw()
 
@@ -44,8 +44,8 @@ hook.Add("TTTBotsOnWitnessFireBullets", "TTTBotsOnWitnessFireBullets", function(
     end
 end)
 
--- Sidekick help its master when he's attacked
-hook.Add("TTTBotsOnWitnessHurt", "TTTBotsOnWitnessHurt",
+-- Sidekick helps jackal when he's attacked
+hook.Add("TTTBotsOnWitnessHurt", "TTTBots_SidekickWitnessHurt",
     function(witness, victim, attacker, healthRemaining, damageTaken)
         if not IsValid(attacker) then return end
 

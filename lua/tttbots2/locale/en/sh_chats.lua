@@ -647,6 +647,32 @@ local LoadLang = function()
     RegisterCategory("DefusingSuccessful", P.IMPORTANT) -- When an innocent bot is defusing a C4.
     Line("I defused it!", A.Default)
 
+    RegisterCategory("PickedUpTraitorWeapon", P.IMPORTANT) -- When a bot picks up a traitor weapon off the ground.
+    Line("I just picked up a traitor weapon, don't kill me!", A.Default)
+    Line("Found a traitor weapon on the ground, picking it up.", A.Default)
+    Line("Hey I grabbed a T weapon off the floor, I'm not a traitor!", A.Default)
+    Line("Don't shoot! I found a traitor weapon on the ground.", A.Default)
+    Line("picked up a t weapon off the ground dont shoot me lol", A.Casual)
+    Line("guys i found a traitor weapon dont freak out", A.Casual)
+    Line("yo i just grabbed a t weapon from the floor", A.Casual)
+    Line("I picked up a suspicious weapon, I'm not the traitor though.", A.Bad)
+
+    RegisterCategory("AmnesiacTransformed", P.IMPORTANT) -- When an Amnesiac bot confirms a body and gets a new role.
+    Line("I just remembered who I am!", A.Default)
+    Line("I confirmed a body and it all came back to me.", A.Default)
+    Line("I remember now... I know what I have to do.", A.Default)
+    Line("wait i just remembered everything", A.Casual)
+    Line("oh wow i remember my role now", A.Casual)
+    Line("Something feels different... I remember.", A.Bad)
+
+    RegisterCategory("DroppedContract", P.IMPORTANT) -- When a Pirate Captain drops their contract near someone.
+    Line("Hey {{target}}, pick up this contract!", A.Default)
+    Line("{{target}}, I have an offer you can't refuse.", A.Default)
+    Line("Here, {{target}}. Take this contract and we'll fight for you.", A.Default)
+    Line("{{target}} pick this up, we'll be on your side", A.Casual)
+    Line("yo {{target}} grab the contract, we work for you now", A.Casual)
+    Line("{{target}}, a business proposition for you.", A.Bad)
+
 
     -----------------------------------------------------------
     -- TRAITOROUS ACTIONS

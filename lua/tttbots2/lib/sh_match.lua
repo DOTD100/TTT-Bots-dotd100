@@ -211,6 +211,25 @@ function Match.OnBotSpotC4(bot, c4)
     if not chatter then return end
     chatter:On("SpottedC4", {}, false)
     locomotor:LookAt(c4:GetPos())
+
+    -- If we can identify who planted this C4, raise suspicion on them.
+    -- The planter reference is stored on the entity by the PlantBomb behavior.
+    local planter = c4.oTTTBotsPlanter
+    if not (IsValid(planter) and planter:IsPlayer() and TTTBots.Lib.IsPlayerAlive(planter)) then return end
+    if TTTBots.Roles.IsAllies(bot, planter) then return end
+    if not bot.components then return end
+
+    -- Check if the planter is close enough to the bomb to be implicated.
+    -- If someone is lingering near a freshly armed C4, that's extremely suspicious.
+    local planterDist = planter:GetPos():Distance(c4:GetPos())
+    local canSeePlanter = TTTBots.Lib.CanSeeArc(bot, planter:GetPos(), 120)
+
+    if canSeePlanter and planterDist < 800 then
+        local morality = bot.components.morality
+        if morality then
+            morality:ChangeSuspicion(planter, "PlantC4")
+        end
+    end
 end
 
 ---@realm server

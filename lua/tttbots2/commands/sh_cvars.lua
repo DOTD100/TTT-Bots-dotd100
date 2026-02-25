@@ -78,10 +78,13 @@ bot_sh_cvar("plant_c4", "1",
     "Whether or not ANY bots are permitted to plant c4. It will not disable the ability to *have* c4, just prevent the use of it.")
 bot_sh_cvar("defuse_c4", "1",
     "Whether or not ANY bots are permitted to defuse c4. Does not affect if bots will buy defuse kits or not as detective (they just won't use it).")
+bot_sh_cvar("traitor_trap", "1",
+    "Whether or not traitor bots are permitted to use traitor trap buttons on the map. Set to 0 to prevent bots from activating any traitor traps.")
 bot_sh_cvar("personalities", "1",
     "Whether or not each bot should spawn in as its own unique individual (basically have their own gameplay-effecting traits)")
 bot_sh_cvar("use_health", "1", "Whether or not bots can use and seek out health stations")
-bot_sh_cvar("plant_health", "1", "Whether or not bots can plant health stations as a policing role")
+bot_sh_cvar("healthstation", "1", "Whether or not bots can buy and plant health stations.")
+bot_sh_cvar("armor", "1", "Whether or not bots will attempt to buy body armor from their shop when they have credits available.")
 
 -- Noise cvars
 bot_sh_cvar("noise_investigate_chance", "50",

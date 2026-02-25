@@ -16,7 +16,8 @@ local RoiderFightBack = {
 local bTree = {
     RoiderFightBack,
     _prior.Restore,
-    _bh.Stalk,          -- Stalk isolated targets then rush them with crowbar
+    _bh.UseTraitorTrap,  -- Activate map traitor traps when non-allies are nearby
+    _bh.Stalk,           -- Stalk isolated targets then rush them with crowbar
     _bh.Interact,
     _prior.Investigate,
     _prior.Minge,

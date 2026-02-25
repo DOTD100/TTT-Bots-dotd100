@@ -71,6 +71,9 @@ function InvestigateCorpse.Validate(bot)
     local killedRecently = (CurTime() - lastKillTime) < 7 -- killed someone within X seconds
     if killedRecently then return false end
 
+    -- Body burners never search corpses they intend to burn
+    if bot.tttbots_burnTarget and IsValid(bot.tttbots_burnTarget) then return false end
+
     local curCorpse = bot.corpseTarget
     if InvestigateCorpse.CorpseValid(curCorpse) then
         return true

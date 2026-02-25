@@ -5,6 +5,31 @@ local lib = TTTBots.Lib
 ---@class CInventory : Component
 local BotInventory = TTTBots.Components.Inventory
 
+--- Safe wrapper for SelectWeapon. Some weapon addons have buggy Deploy/Holster
+--- callbacks that throw errors (e.g. passing wrong types to networked vars).
+--- This prevents a single bad weapon from crashing the entire bot Think cycle.
+--- If a weapon class errors, it is blacklisted so the bot never retries it.
+---@param bot Player
+---@param className string
+---@return boolean success
+local function SafeSelectWeapon(bot, className)
+    -- Check blacklist first (per-bot table of weapon classes that errored)
+    if not bot.tttbots_wepBlacklist then
+        bot.tttbots_wepBlacklist = {}
+    end
+    if bot.tttbots_wepBlacklist[className] then
+        return false
+    end
+
+    local ok, err = pcall(bot.SelectWeapon, bot, className)
+    if not ok then
+        bot.tttbots_wepBlacklist[className] = true
+        print(string.format("[TTT Bots 2] SelectWeapon('%s') failed for %s — blacklisted: %s",
+            className, bot:Nick(), tostring(err)))
+    end
+    return ok
+end
+
 function BotInventory:New(bot)
     local newInventory = {}
     setmetatable(newInventory, {
@@ -310,7 +335,7 @@ function BotInventory:ManageDebugWeapon()
         if not self.bot:HasWeapon(forcedClass) then
             self.bot:Give(forcedClass)
         end
-        self.bot:SelectWeapon(forcedClass)
+        SafeSelectWeapon(self.bot, forcedClass)
 
         local held = self:GetHeldWeaponInfo()
         if not held then return true end
@@ -350,9 +375,12 @@ function BotInventory:AutoManageInventory()
     for _, entry in ipairs(priorityList) do
         local wepInfo = entry.info
         if wepInfo and (wepInfo.ammo > 0 or wepInfo.clip > 0) then
-            entry.func(self)
-            foundGun = true
-            break
+            local success = entry.func(self)
+            if success ~= false then
+                foundGun = true
+                break
+            end
+            -- If equip failed (e.g. weapon blacklisted), try the next one
         end
     end
 
@@ -412,6 +440,79 @@ function BotInventory:ResumeAutoSwitch()
     self.pauseAutoSwitch = false
 end
 
+--- Proactive reload: when the bot is idle (no attack target), cycle through all
+--- guns and briefly switch to any weapon with a partial clip to reload it.
+--- This prevents bots from entering a fight with half-empty magazines.
+---@return boolean reloading True if we switched to a weapon to reload it
+function BotInventory:ProactiveReload()
+    local bot = self.bot
+    if not lib.IsPlayerAlive(bot) then return false end
+
+    -- Don't do this if we're in combat or the auto-switch is paused
+    if IsValid(bot.attackTarget) then return false end
+    if self.pauseAutoSwitch then return false end
+
+    -- Throttle: only check every ~2 seconds to avoid constant weapon flickering
+    if (self._proactiveReloadNext or 0) > CurTime() then return false end
+
+    -- If we're currently in the middle of a proactive reload, wait for it to finish
+    if self._proactiveReloading then
+        local heldWep = bot:GetActiveWeapon()
+        if IsValid(heldWep) and heldWep:Clip1() < heldWep:GetMaxClip1() then
+            -- Still reloading, keep going
+            local loco = bot:BotLocomotor()
+            if loco then loco:Reload() end
+            return true
+        end
+        -- Reload finished (or weapon changed) — clear the flag and resume
+        self._proactiveReloading = false
+        self._proactiveReloadNext = CurTime() + 1
+        return false
+    end
+
+    -- Scan all weapons for any that need topping off
+    local weapons = bot:GetWeapons()
+    for _, wep in pairs(weapons) do
+        if not IsValid(wep) then continue end
+        local maxClip = wep:GetMaxClip1()
+        if maxClip <= 0 then continue end -- Not a gun (melee, nade, etc.)
+        local clip = wep:Clip1()
+        if clip >= maxClip then continue end -- Already full
+
+        -- Check we have reserve ammo to reload with
+        local ammoType = wep:GetPrimaryAmmoType()
+        if ammoType < 0 then continue end
+        local reserve = bot:GetAmmoCount(ammoType)
+        if reserve <= 0 then continue end
+
+        -- This weapon needs reloading — is it already held?
+        local activeWep = bot:GetActiveWeapon()
+        if IsValid(activeWep) and activeWep == wep then
+            -- Already holding it, just reload
+            local loco = bot:BotLocomotor()
+            if loco then
+                loco:StopAttack()
+                loco:StopAttack2()
+                loco:Reload()
+            end
+            self._proactiveReloading = true
+            return true
+        end
+
+        -- Need to switch to this weapon first
+        local switched = SafeSelectWeapon(bot, wep:GetClass())
+        if switched ~= false then
+            self._proactiveReloading = true
+            -- Reload will happen next tick when we're holding it
+            return true
+        end
+    end
+
+    -- Nothing to reload — check again in a few seconds
+    self._proactiveReloadNext = CurTime() + 3
+    return false
+end
+
 function BotInventory:Think()
     if not lib.IsPlayerAlive(self.bot) then return end
     if lib.GetDebugFor("inventory") then
@@ -420,7 +521,13 @@ function BotInventory:Think()
     self.tick = self.tick + 1
 
     if not IsValid(self.bot.attackTarget) then
+        -- First try proactive reload (cycles through ALL guns)
+        if self:ProactiveReload() then return end
+        -- Fallback: reload currently held weapon
         self:ReloadIfNecessary()
+    else
+        -- In combat: cancel any proactive reload in progress
+        self._proactiveReloading = false
     end
 
     -- Manage our own inventory, but only if we have not been paused
@@ -468,6 +575,27 @@ function BotInventory:EquipSheriffGun()
     self.bot:SetActiveWeapon(gun)
     return true
 end
+
+--- Return the Brainwasher's Slave Deagle (weapon_ttt2_slavedeagle) if it has >0 shots. If not, then return nil.
+---@return WeaponInfo?
+function BotInventory:GetSlaveDeagle()
+    local hasWeapon = self.bot:HasWeapon("weapon_ttt2_slavedeagle")
+    if not hasWeapon then return end
+    local wep = self.bot:GetWeapon("weapon_ttt2_slavedeagle")
+    if not IsValid(wep) then return end
+
+    return wep:Clip1() > 0 and wep or nil
+end
+
+--- Equip the Brainwasher's Slave Deagle if we have it. Returns true if we equipped it, false if we didn't.
+---@return boolean
+function BotInventory:EquipSlaveDeagle()
+    local gun = self:GetSlaveDeagle()
+    if not gun then return false end
+    self.bot:SetActiveWeapon(gun)
+    return true
+end
+
 ---Returns the weapon info table for the weapon we are holding, or what the target is holding if any.
 ---@param target Player|nil
 ---@return WeaponInfo?
@@ -595,17 +723,16 @@ function BotInventory:Equip(wep)
 
     if found then
         -- self.bot:SelectWeapon(found) apparently this only works with classnames and not weapon objects...
-        self.bot:SelectWeapon(found:GetClass())
+        return SafeSelectWeapon(self.bot, found:GetClass())
     end
 
-    return (found ~= nil)
+    return false
 end
 
 function BotInventory:EquipSpecial()
     local firstSpecial = self:GetSpecialPrimary()
     if not (firstSpecial and IsValid(firstSpecial)) then return false end
-    self.bot:SelectWeapon(firstSpecial:GetClass())
-    return true
+    return SafeSelectWeapon(self.bot, firstSpecial:GetClass())
 end
 
 function BotInventory:EquipPrimary()
@@ -618,7 +745,7 @@ end
 
 function BotInventory:EquipMelee()
     -- return self:Equip("melee")
-    return self.bot:SelectWeapon("weapon_zm_improvised")
+    return SafeSelectWeapon(self.bot, "weapon_zm_improvised")
 end
 
 function BotInventory:EquipGrenade()
@@ -667,3 +794,10 @@ function plyMeta:BotInventory()
     ---@cast self Bot
     return self.components.inventory
 end
+
+--- Clear weapon blacklists each round so weapons get a fresh chance.
+hook.Add("TTTBeginRound", "TTTBots.Inventory.ClearBlacklist", function()
+    for _, bot in ipairs(player.GetBots()) do
+        bot.tttbots_wepBlacklist = nil
+    end
+end)

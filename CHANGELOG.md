@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.0.0
+
+A massive feature overhaul focused on TTT2 custom role support, combat improvements, shop systems, personality traits, and bot intelligence. This update adds support for 20+ custom roles, a complete shop buying system, new behaviors, and numerous bug fixes.
+
+### Added Roles Support
+
+- **Psychopath**, **Bandit**, **Executioner**, **Roider**, **Brainwasher**, **Slave**, **Shanker**, **Hidden**, **Fuse**, **Beggar**, **Necromancer**, **Pirate/Captain**, **Mesmerist**, **Cursed**, **Swapper**, **Loot Goblin**, **Amnesiac**
+
+### Fixes/Improvement/Optimizations:
+
+- Now reads from `sh_weapons.lua` for the user-defined weapon list for the bot to buy from the shop. More details will be explained in the wiki, but the comments and example weapon list should help in adding your own weapon. Do note bots struggle with complex weapons such as remote controlled trap, manual weapon tracking (such as air-to-surface missile). Traitor shop enforces per-round weapon uniqueness across aliased roles. Detective shop exempt (pool too small). Wraps around when all options exhausted.
+- Detective-shop roles now buys health station and coordinate in order to not buy duplicate health station. Can be controlled through the convar `ttt_bot_healthstation` (default "1").
+- Universal armor purchasing, controlled through `ttt_bot_armor` convar (default "1"). Bots prioritize weapons over armor if starting with 1 credits, and can buy armor mid round if they earn more credits.
+- **TEBN suppression**: All bot purchases suppress Team Buy Equipment Notifications via `net.Start` wrapper.
+- Bots now detect and pickup dropped shop/equipment weapons. Innocents and traitor alike also announce in chat upon pickup.
+- Bots are now able to use Traitor Trap buttons! However, it seems to be rather rare for them to do so and only if there are non-ally in range.
+- Super soda cans can now be interacted if detected by the bots.
+- Bots no longer become oblivious to bullets being shot at them if the bullets flew right next to them. They will fire back if there is only one visible human/bot in view as well. Bots will also react to deaths nearby them, with contextual behavior depending on who is killed.
+- Gunfights will no longer be forgotten after a few seconds, and they are more compelled to investigate 'active' gunfights (many shots being fired for a prolonged amount of time.)
+- Bots no longer shred the Jester upon annoyance, instead they will only open fire upon Jester under pressure when the Jester decided to join a firefight.
+- Custom **Hitman**/**Executioner** behavior added to prioritize their target, they will still defend themselves if shot by someone else though.
+- Finished up the unfinished **Assassin/Bodyburner/Disguiser/Radiohead** trait.
+- Bots will now crouch jump if unable to reach a spot or is stuck, along with shooting and falling back to the crowbar if still stuck. Miscellaneous navigation fixes.
+- C4 planting and defusing reworked. Bots will take 3 seconds to plant the bomb when there's no one nearby and flee the area once successfully planted. However, if someone was to catch them red-handed, then it's not going to end up well for them. Bots with a defuser will take priority in defusing the bomb compared to one with no defuser, and will overwrite other tasks depending on proximity and timer. 33% success rate in defusing the bomb implemented.
+- Hook ID collision fix. `deputy.lua` and `sidekick.lua` were both registering hooks with the same unique ID (`"TTTBotsOnWitnessFireBullets"` / `"TTTBotsOnWitnessHurt"`), causing whichever loaded last to silently overwrite the other. Fixed with unique IDs per role.
+- Various operator precedence bugs and boolean inversions corrected across multiple files.
+
 ## v1.3.4
 
 Another patch to prevent bots from opening doors they are not supposed to; targeting **TTT2**
@@ -55,7 +82,7 @@ Next up will likely be the Traitor rework, but before then will be a patch to de
 - **TTT2** Bots will show their avatars in the top-right when their corpse is revealed. ([#41](https://github.com/thebigsleepjoe/TTT-Bots-2/issues/41))
 ^ Note: this is a little inconsistent, but AFAIK it's the best I will do for now.
 
-- **TTT2** Role suppport for Bodyguard ([#37](https://github.com/thebigsleepjoe/TTT-Bots-2/issues/37))
+- **TTT2** Role support for Bodyguard ([#37](https://github.com/thebigsleepjoe/TTT-Bots-2/issues/37))
 
 - Added concommand `ttt_bot_nav_gen` to utilize Navmesh Optimizer for quick navmesh generation.
 
@@ -77,7 +104,7 @@ Next up will likely be the Traitor rework, but before then will be a patch to de
 
 - Improved bot movement precision by reducing the pathfinding node 'complete' threshold.
 
-- Bot avatar system no longer needs to sync with server, reducing bandwidth usage and increasing consitency.
+- Bot avatar system no longer needs to sync with server, reducing bandwidth usage and increasing consistency.
 
 - Overhauled bot brain functionality to prevent potential (rare) bugs, mostly related to bots doing nothing
 
@@ -85,7 +112,7 @@ Next up will likely be the Traitor rework, but before then will be a patch to de
 
 - Removed concommand `ttt_bot_nav_generate`, as it was outdated.
 
-- No more difficulty-specific bot profile pictures due to unmaintainabiltiy
+- No more difficulty-specific bot profile pictures due to complexity.
 
 - Removed old `FindWeapon` behavior due to a number of headaches it caused.
 
@@ -141,7 +168,7 @@ This build will probably not be going to steam due to it having minimal gameplay
 
 - Added a large number of class definitions and improved commenting across the entire codebase.
 
-- There are no longer linting errors present using LuaLS. Which is saying a lot, as there were probably a hundred or so before these changes.
+- There are no longer listing errors present using LuaLS. Which is saying a lot, as there were probably a hundred or so before these changes.
 
 - Changed `Player:GetMorality` --> `Player:BotMorality` for consistency.
 
@@ -191,7 +218,7 @@ This build will probably not be going to steam due to it having minimal gameplay
   2. Worse accuracy when their target is moving.
   3. Worse accuracy when the bot or its target is in smoke.
   4. Better accuracy when the bot is stationary.
-  5. Better accuracy when shoothing stationary targets.
+  5. Better accuracy when shooting stationary targets.
   6. Focus system like CSGO bots, where they will increase in shooting accuracy when shooting at the same target over time. Affected heavily by personality.
 
 - Decreased time between quote management updates (2.5s -> 1s)
@@ -208,13 +235,13 @@ This build will probably not be going to steam due to it having minimal gameplay
 
 - Bot inaccuracy not correctly scaling over distances. It was hard-capped to a lower value than it should be.
 
-- Sending too many net msgs to syncronize bot avatars. (reported per @EntranceJew)
+- Sending too many net msgs to synchronise bot avatars. (reported per @EntranceJew)
 
 - Bots will place their crosshair closer to the stomach when they lose sight of their enemy.
 
 - No longer EthicalNotify if there are no bots in the game.
 
-- Bots with a melee will no longer slow themselves down by stafing while approaching.
+- Bots with a melee will no longer slow themselves down by strafing while approaching.
 
 - **TTT2** Jackal will start fights to prevent stalling rounds.
 

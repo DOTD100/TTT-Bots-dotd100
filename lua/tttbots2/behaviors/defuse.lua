@@ -31,24 +31,41 @@ end
 
 ---Return whether or not a bot is elligible to defuse a C4 (does not factor in if there is one nearby)
 ---@param bot Bot
----@return boolean
+---@return boolean eligible, boolean hasPriority
 function Defuse.IsEligible(bot)
-    if not lib.IsPlayerAlive(bot) then return false end
-    if not Defuse.IsBotEligableRole(bot) then return false end
+    if not lib.IsPlayerAlive(bot) then return false, false end
+    if not Defuse.IsBotEligableRole(bot) then return false, false end
 
-    local personality = bot:BotPersonality()
-    if not personality then return false end
-
-    local isDefuser = personality:GetTraitBool("defuser")
-    -- weapon_ttt_defuser
     local hasDefuseKit = bot:HasWeapon("weapon_ttt_defuser")
-    local chance = math.random(1, Defuse.DEFUSE_TRY_CHANCE) == 1
+    local isPolice = TTTBots.Roles.GetRoleFor(bot):GetAppearsPolice()
 
-    if hasDefuseKit or isDefuser or chance then
-        return true
+    -- A detective/police with a defuser kit ALWAYS defuses (highest priority)
+    if hasDefuseKit and isPolice then
+        return true, true
     end
 
-    return false
+    -- A detective/police without a kit still gets a good chance
+    if isPolice then
+        return true, false
+    end
+
+    -- Anyone with a defuser kit gets guaranteed eligibility
+    if hasDefuseKit then
+        return true, true
+    end
+
+    -- Other roles: trait-based or random chance
+    local personality = bot:BotPersonality()
+    if not personality then return false, false end
+
+    local isDefuser = personality:GetTraitBool("defuser")
+    local chance = math.random(1, Defuse.DEFUSE_TRY_CHANCE) == 1
+
+    if isDefuser or chance then
+        return true, false
+    end
+
+    return false, false
 end
 
 ---Returns the first visible C4 that has been spotted
@@ -72,8 +89,28 @@ function Defuse.Validate(bot)
     if not TTTBots.Match.IsRoundActive() then return false end
     if not Defuse.IsBotEligableRole(bot) then return false end
     if bot.defuseTarget ~= nil then return true end
-    if not Defuse.IsEligible(bot) then return false end
-    return Defuse.GetVisibleC4(bot) ~= nil
+
+    local eligible, hasPriority = Defuse.IsEligible(bot)
+    if not eligible then return false end
+
+    local c4 = Defuse.GetVisibleC4(bot)
+    if not c4 then return false end
+
+    -- If another non-priority bot is already defusing this C4, a priority bot
+    -- (detective with kit) can take over. Non-priority bots defer.
+    if not hasPriority then
+        -- Check if a priority defuser is already on this bomb
+        for _, other in pairs(TTTBots.Bots) do
+            if other == bot then continue end
+            if not (IsValid(other) and lib.IsPlayerAlive(other)) then continue end
+            if other.defuseTarget == c4 and other.defusePriority then
+                return false -- A priority defuser is on the job, stand down
+            end
+        end
+    end
+
+    bot.defusePriority = hasPriority
+    return true
 end
 
 --- Called when the behavior is started
@@ -128,16 +165,26 @@ end
 
 function Defuse.TryDefuse(bot, c4)
     local dist = bot:GetPos():Distance(c4:GetPos())
+
+    if (dist > Defuse.DEFUSE_RANGE) then return nil end -- not close enough yet
+
     local hasDefuser = bot:HasWeapon("weapon_ttt_defuser")
 
-    if (dist > Defuse.DEFUSE_RANGE) then return false end
-
+    -- With a defuser kit: always safe
     if hasDefuser then
         Defuse.DefuseC4(bot, c4, true)
         return true
     end
 
+    -- Without a defuser kit: one attempt only.
+    -- If the bot already tried this bomb, don't re-roll — the result is locked in.
+    if bot.defuseAttempted then
+        return bot.defuseResult
+    end
+
+    bot.defuseAttempted = true
     local isSuccessful = math.random(1, Defuse.DEFUSE_WIN_CHANCE) == 1
+    bot.defuseResult = isSuccessful
     Defuse.DefuseC4(bot, c4, isSuccessful)
 
     return isSuccessful
@@ -164,11 +211,20 @@ function Defuse.OnRunning(bot)
         return STATUS.FAILURE
     end
 
-    local isSuccessful = Defuse.TryDefuse(bot, bomb)
-    if isSuccessful then
+    local result = Defuse.TryDefuse(bot, bomb)
+    -- nil  = not close enough yet, keep moving
+    -- true = defuse succeeded (or will succeed after the timer)
+    -- false = wrong wire, bomb will explode after the timer
+    if result == true then
         return STATUS.SUCCESS
+    elseif result == false then
+        -- Wrong wire — bot is committed, nothing more to do. The DefuseC4
+        -- timer will call FailedDisarm shortly. Return FAILURE so the bot
+        -- stops standing next to the bomb and possibly runs.
+        return STATUS.FAILURE
     end
 
+    -- Still approaching — navigate to the bomb
     local locomotor = bot:BotLocomotor()
     if not locomotor then return STATUS.FAILURE end
 
@@ -190,4 +246,7 @@ end
 --- Called when the behavior ends
 function Defuse.OnEnd(bot)
     bot.defuseTarget = nil
+    bot.defusePriority = nil
+    bot.defuseAttempted = nil
+    bot.defuseResult = nil
 end

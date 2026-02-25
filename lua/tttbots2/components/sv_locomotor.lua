@@ -82,6 +82,8 @@ function BotLocomotor:Initialize(bot)
 
     self.crouch = false
     self.jump = false
+    self.crouchJump = false          -- True when the bot needs to crouch-jump (IN_JUMP + IN_DUCK on ground)
+    self.stuckJumpAttempts = 0       -- Escalation counter: repeated stuck jumps → crouch-jump
     self.dontmove = false
 
     self.doorStandPos = nil
@@ -386,6 +388,7 @@ function BotLocomotor:StopMoving()
     self:Strafe(nil)
     self:Jump(false)
     self:Crouch(false)
+    self.crouchJump = false
     self:SetLookGoal(nil)
     self.pathRequest = nil
     self.randomLookEntityStopTime = nil
@@ -449,8 +452,97 @@ function BotLocomotor:CheckFeetAreObstructed()
     return trce.Hit and not (trce.Entity and (trce.Entity:IsPlayer() or lib.IsDoor(trce.Entity)))
 end
 
+--- Check if there's a waist/chest-height obstruction ahead that a regular jump
+--- can't clear. If the feet are blocked AND the chest is blocked, we need a
+--- crouch-jump to get over it.
+---@return boolean
+function BotLocomotor:CheckChestIsObstructed()
+    local pos = self.bot:GetPos()
+    local bodyfacingdir = self:GetMoveNormal() or Vector(0, 0, 0)
+    bodyfacingdir.z = 0
+
+    -- Check at chest height (~48 units up from feet)
+    local startpos = pos + Vector(0, 0, 48)
+    local endpos = startpos + bodyfacingdir * 30
+
+    local trce = util.TraceLine({
+        start = startpos,
+        endpos = endpos,
+        filter = self.bot,
+    })
+
+    return trce.Hit and not (trce.Entity and (trce.Entity:IsPlayer() or lib.IsDoor(trce.Entity)))
+end
+
+--- Check if there's headroom above an obstacle — can we clear it by jumping?
+--- Traces from the top of a jump arc forward to see if there's space above.
+---@return boolean hasHeadroom True if there's space above the obstacle
+function BotLocomotor:CheckHeadroomAboveObstacle()
+    local pos = self.bot:GetPos()
+    local bodyfacingdir = self:GetMoveNormal() or Vector(0, 0, 0)
+    bodyfacingdir.z = 0
+
+    -- Jump height is roughly 56 units; check from that height forward
+    local startpos = pos + Vector(0, 0, 56)
+    local endpos = startpos + bodyfacingdir * 40
+
+    local trce = util.TraceLine({
+        start = startpos,
+        endpos = endpos,
+        filter = self.bot,
+    })
+
+    return not trce.Hit
+end
+
 function BotLocomotor:ShouldJump()
-    return self:CheckFeetAreObstructed() or (math.random(1, 100) == 1 and self:IsStuck())
+    -- Standard feet-level obstruction check
+    if self:CheckFeetAreObstructed() then return true end
+
+    -- Height difference check: if the next path node is above us, we need to jump
+    local nextPos = self.nextPos
+    if nextPos then
+        local heightDiff = nextPos.z - self.bot:GetPos().z
+        if heightDiff > 18 then -- Above step height (~18 units)
+            return true
+        end
+    end
+
+    -- Random jump when stuck (existing behavior)
+    if math.random(1, 100) == 1 and self:IsStuck() then return true end
+
+    return false
+end
+
+--- Determine if the bot should crouch-jump instead of a regular jump.
+--- Crouch-jumping lets the bot pull their legs up higher mid-air, clearing
+--- taller obstacles like crates, window sills, and railings.
+---@return boolean
+function BotLocomotor:ShouldCrouchJump()
+    -- If we're not trying to jump, no need to crouch-jump
+    if not self.jump then return false end
+
+    -- Condition 1: Chest-height obstruction — obstacle is tall enough that
+    -- regular jump won't clear it, but there's headroom above
+    if self:CheckChestIsObstructed() and self:CheckHeadroomAboveObstacle() then
+        return true
+    end
+
+    -- Condition 2: Next path position is significantly above us (crate height)
+    local nextPos = self.nextPos
+    if nextPos then
+        local heightDiff = nextPos.z - self.bot:GetPos().z
+        if heightDiff > 36 then -- Higher than a standard jump can reach without crouching
+            return true
+        end
+    end
+
+    -- Condition 3: We've been stuck and jumping hasn't worked — escalate to crouch-jump
+    if self:IsStuck() and self.jump then
+        return true
+    end
+
+    return false
 end
 
 function BotLocomotor:ShouldCrouchBetween(a, b)
@@ -696,20 +788,24 @@ end
 ---@package
 function BotLocomotor:TryUnstick()
     --[[
-        So we're stuck. Let's send 3x raycasts to figure out why.
+        So we're stuck. Let's send raycasts to figure out why.
             Ray 1: Straight forward, at knee-height, 30 units long. Mask is everything
             Ray 2: Straight left, at knee-height, 30 units long. Mask is everything
             Ray 3: Straight right, at knee-height, 30 units long. Mask is everything
+            Ray 4: Straight forward, at chest-height, 30 units long. Detects taller obstacles.
         IF:
             Ray 1: We should jump.
             Ray 2: Strafe right
             Ray 3: Strafe left
+            Ray 1 + Ray 4: Obstacle is tall — crouch-jump.
     ]]
     local kneePos = self.bot:GetPos() + Vector(0, 0, 16)
+    local chestPos = self.bot:GetPos() + Vector(0, 0, 48)
     local bodyfacingdir = self.bot:GetAimVector()
 
     local magnitude = 30
     local forward = kneePos + (bodyfacingdir * magnitude)
+    local forwardChest = chestPos + (bodyfacingdir * magnitude)
     local ang = (bodyfacingdir:Angle():Right() * magnitude * 2)
     local left = kneePos + ang
     local right = kneePos - ang
@@ -735,10 +831,14 @@ function BotLocomotor:TryUnstick()
         mask = MASK_ALL
     })
 
-    -- draw debug lines
-    -- TTTBots.DebugServer.DrawLineBetween(kneePos, forward, Color(255, 0, 255))
-    -- TTTBots.DebugServer.DrawLineBetween(kneePos, left, Color(255, 0, 255))
-    -- TTTBots.DebugServer.DrawLineBetween(kneePos, right, Color(255, 0, 255))
+    -- Chest-height trace: detects taller obstacles that need crouch-jumping
+    local trce4 = util.TraceLine({
+        start = chestPos,
+        endpos = forwardChest,
+        filter = self.bot,
+        mask = MASK_ALL
+    })
+
     local dvlpr = lib.GetConVarBool("debug_pathfinding")
     if dvlpr then
         TTTBots.DebugServer.DrawText(kneePos, string.format("%s's stuck!", self.bot:Nick()), Color(255, 0, 255))
@@ -746,16 +846,95 @@ function BotLocomotor:TryUnstick()
 
     self:Jump(false)
     self:Crouch(false)
+    self.crouchJump = false
 
-    self:Jump(trce1.Hit and not (trce1.Entity and (trce1.Entity:IsPlayer() or lib.IsDoor(trce1.Entity))))
+    local fwdHitSolid = trce1.Hit and not (trce1.Entity and (trce1.Entity:IsPlayer() or lib.IsDoor(trce1.Entity)))
+    local chestHitSolid = trce4.Hit and not (trce4.Entity and (trce4.Entity:IsPlayer() or lib.IsDoor(trce4.Entity)))
+
+    -- 🪑 PROP SHOVING: If stuck on a physics prop or breakable, attack it to push/break it
+    local fwdEnt = trce1.Entity
+    if not fwdEnt and trce4.Entity then fwdEnt = trce4.Entity end -- try chest trace if knee missed
+    if fwdEnt and IsValid(fwdEnt) and not fwdEnt:IsPlayer() and not lib.IsDoor(fwdEnt) then
+        local entClass = fwdEnt:GetClass()
+        local isPhysicsProp = (entClass == "prop_physics" or entClass == "prop_physics_multiplayer"
+            or entClass == "func_physbox")
+        local isBreakable = (entClass == "func_breakable" or entClass == "func_breakable_surf")
+
+        -- Also catch any physics entity with a valid physics object (covers custom prop types)
+        if not isPhysicsProp and not isBreakable then
+            local phys = fwdEnt:GetPhysicsObject()
+            if phys and IsValid(phys) and fwdEnt:GetMoveType() == MOVETYPE_VPHYSICS then
+                isPhysicsProp = true
+            end
+        end
+
+        if isPhysicsProp or isBreakable then
+            local now = CurTime()
+            -- Throttle prop shove attempts (every 0.4 seconds)
+            if not self._propShoveNext or now >= self._propShoveNext then
+                self._propShoveNext = now + 0.4
+                self._propShoveCount = (self._propShoveCount or 0) + 1
+
+                -- Look at the prop center to aim our attack
+                local propPos = fwdEnt:WorldSpaceCenter and fwdEnt:WorldSpaceCenter() or fwdEnt:GetPos()
+                self:LookAt(propPos)
+
+                -- After 3+ failed shoves on a breakable, switch to crowbar for more damage
+                if isBreakable and self._propShoveCount >= 3 then
+                    local imgr = self.bot.components and self.bot.components.inventory
+                    if imgr then
+                        imgr:EquipMelee()
+                        imgr:PauseAutoSwitch()
+                        -- Resume auto-switch after a short delay so the bot re-equips its gun
+                        timer.Simple(1.5, function()
+                            if IsValid(self.bot) and imgr then
+                                imgr:ResumeAutoSwitch()
+                            end
+                        end)
+                    end
+                end
+
+                -- Attack with whatever we're holding — crowbar shoves, guns bash
+                self:StartAttack()
+
+                -- Schedule stopping the attack next frame
+                timer.Simple(0.15, function()
+                    if IsValid(self.bot) then
+                        self:StopAttack()
+                    end
+                end)
+            end
+
+        end
+    end
+
+    if fwdHitSolid then
+        self:Jump(true)
+        -- If the chest ray also hit, the obstacle is tall — crouch-jump to pull legs up
+        if chestHitSolid then
+            self.crouchJump = true
+        end
+    end
+
     self:Strafe(
         (trce2.Hit and "left") or
         (trce3.Hit and "right") or
         nil
     )
 
+    -- Track stuck attempts: if we've been stuck for a while, always crouch-jump
+    self.stuckJumpAttempts = (self.stuckJumpAttempts or 0) + 1
+    if self.stuckJumpAttempts >= 3 then
+        self:Jump(true)
+        self.crouchJump = true
+    end
+
     if math.random(1, 5) == 3 then
         self:Jump(true)
+        -- Escalate random jumps to crouch-jumps after repeated failures
+        if self.stuckJumpAttempts >= 2 then
+            self.crouchJump = true
+        end
     end
 
     if not (trce1.Hit or trce2.Hit or trce3.Hit) then
@@ -820,6 +999,7 @@ function BotLocomotor:UpdateMovement()
     self:SetUse(false)
     self:StopPriorityMovement()
     self.isTryingPath = false
+    self.crouchJump = false
     self:SetCliffed()
     self:ValidateGoalProx()
     if self.dontmove then return end
@@ -846,6 +1026,11 @@ function BotLocomotor:UpdateMovement()
     if self.tick % 3 == 1 then self:RecordPosition() end
     if self:IsStuck() then
         self:TryUnstick()
+    else
+        -- Reset stuck escalation counters when we're moving freely
+        self.stuckJumpAttempts = 0
+        self._propShoveNext = nil
+        self._propShoveCount = 0
     end
 
     -- self:AvoidObstacles()
@@ -974,7 +1159,31 @@ function BotLocomotor:UpdatePathRequest()
     end
 
     -- If we don't have a path, request one
-    local pathid, pathInfo, status = TTTBots.PathManager.RequestPath(self.bot, self.bot:GetPos(), goalPos, false)
+    -- Validate that both start and goal positions have nearby nav areas to
+    -- avoid spamming "Start nil" / "Finish nil" errors for off-mesh positions.
+    local botPos = self.bot:GetPos()
+    local startNavArea = navmesh.GetNearestNavArea(botPos)
+    if not startNavArea then
+        if lib.GetConVarBool("debug_pathfinding") then
+            print(string.format("[TTT Bots 2] %s: bot position %s has no nearby nav area",
+                self.bot:Nick(), tostring(botPos)))
+        end
+        self.cantReachGoal = true
+        return STAT.IMPOSSIBLE
+    end
+
+    local goalNavArea = navmesh.GetNearestNavArea(goalPos)
+    if not goalNavArea then
+        if lib.GetConVarBool("debug_pathfinding") then
+            print(string.format("[TTT Bots 2] %s: goal position %s has no nearby nav area — clearing goal",
+                self.bot:Nick(), tostring(goalPos)))
+        end
+        self:SetGoal(nil)
+        self.cantReachGoal = true
+        return STAT.IMPOSSIBLE
+    end
+
+    local pathid, pathInfo, status = TTTBots.PathManager.RequestPath(self.bot, botPos, goalPos, false)
 
     if not pathInfo then -- path is impossible
         self.cantReachGoal = true
@@ -1128,6 +1337,10 @@ function BotLocomotor:FollowPath()
 
     if self:ShouldJump() then
         self:Jump(true)
+        -- Check if we need a crouch-jump (taller obstacle or high platform)
+        if self:ShouldCrouchJump() then
+            self.crouchJump = true
+        end
     end
 
     if self:ShouldCrouchBetween(bot:GetPos(), nextPos) then
@@ -1359,6 +1572,12 @@ function BotLocomotor:Reload()
     self.reload = true
 end
 
+--- Press the USE key (+use) for one tick. Used for interacting with players
+--- or entities that require the standard USE input (e.g. Cursed tagging).
+function BotLocomotor:PressUse()
+    self.pressUse = true
+end
+
 local LADDER_THRESH_TOP = 30
 local LADDER_THRESH_BOTTOM = 64
 --- Functionally similar to IsNearEndOfLadder, but checks the current navigational goal to see if it agrees.
@@ -1461,21 +1680,28 @@ function BotLocomotor:StartCommand(cmd) -- aka StartCmd
 
     -- SetButtons to IN_DUCK if crouch is true 🦆
     cmd:SetButtons(
-        (self:IsTryingCrouch() or self:IsTryingJump()) and IN_DUCK or 0
+        (self:IsTryingCrouch() or self.crouchJump) and IN_DUCK or 0
     )
 
     --- 🦘 Set buttons for jumping if :GetJumping() is true
     --- The way jumping works is a little quirky, as it cannot be held down. We must release it occasionally
     if self:IsTryingJump() and (self.jumpReleaseTime < TIMESTAMP) or self.jumpReleaseTime == nil then
         local onGround = self.bot:OnGround()
-        if not onGround then
+        if self.crouchJump then
+            -- Crouch-jump: press both simultaneously for maximum height.
+            -- This works on ground (launch frame) AND in air (pull legs up).
+            cmd:SetButtons(IN_JUMP + IN_DUCK)
+        elseif not onGround then
+            -- Regular jump, airborne: duck to pull legs up for clearance
             cmd:SetButtons(IN_JUMP + IN_DUCK)
         else
+            -- Regular jump, on ground: just jump
             cmd:SetButtons(IN_JUMP)
         end
         self.jumpReleaseTime = TIMESTAMP + 0.1
         if DVLPR_PATHFINDING then
-            TTTBots.DebugServer.DrawText(MYPOS, "Crouch Jumping", Color(255, 255, 255))
+            local jumpType = self.crouchJump and "Crouch Jumping" or "Jumping"
+            TTTBots.DebugServer.DrawText(MYPOS, jumpType, Color(255, 255, 255))
         end
     end
 
@@ -1609,6 +1835,12 @@ function BotLocomotor:StartCommand(cmd) -- aka StartCmd
     if self.reload then
         cmd:SetButtons(cmd:GetButtons() + IN_RELOAD)
         self.reload = false
+    end
+
+    --- 🤚 MANAGE USE KEY (for interacting with players/entities via +USE)
+    if self.pressUse then
+        cmd:SetButtons(cmd:GetButtons() + IN_USE)
+        self.pressUse = false
     end
 
     -- TODO: use IN_SPEED to sprint around. cannot be held down constantly or else it won't work.

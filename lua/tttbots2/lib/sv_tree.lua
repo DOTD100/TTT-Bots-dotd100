@@ -27,7 +27,9 @@ TTTBots.Behaviors.PriorityNodes = {
     --- Restore values, like health, ammo, etc.
     Restore = {
         _bh.GetWeapons,
-        _bh.UseHealthStation
+        _bh.UseHealthStation,
+        _bh.DrinkSoda,
+        _bh.PickupLoot
     },
     --- Investigate corpses/noises.
     Investigate = {
@@ -61,8 +63,11 @@ TTTBots.Behaviors.DefaultTrees = {
     },
     traitor = {
         _prior.FightBack,
+        _bh.BurnCorpse,         -- Burn victim corpses with flare gun (bodyBurner trait only)
+        _bh.PlaceRadio,         -- Place radio for distraction (radiohead trait only)
         _bh.Defib,
         _bh.PlantBomb,
+        _bh.UseTraitorTrap,     -- Activate map traitor traps when non-allies are nearby
         _bh.InvestigateCorpse,
         _prior.Restore,
         _bh.FollowPlan,

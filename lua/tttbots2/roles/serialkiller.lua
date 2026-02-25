@@ -12,6 +12,7 @@ local _bh = TTTBots.Behaviors
 local _prior = TTTBots.Behaviors.PriorityNodes
 local bTree = {
     _prior.FightBack,
+    _bh.Defuse,
     _prior.Restore,
     _bh.Stalk,
     _prior.Minge,

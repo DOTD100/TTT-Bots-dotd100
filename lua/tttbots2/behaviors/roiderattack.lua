@@ -117,7 +117,13 @@ function RoiderAttack.Engage(bot, target)
     -- Swing if close enough and looking at the target
     local tooFar = distToTarget > RoiderAttack.RUSH_RANGE
     if not tooFar then
-        if TTTBots.Behaviors.AttackTarget.LookingCloseToTarget(bot, target) then
+        -- Ensure the bot is actually holding a valid weapon before swinging.
+        -- The Roider addon's EntityTakeDamage hook calls GetClass() on the inflictor,
+        -- which will error on a NULL weapon entity.
+        local activeWep = bot:GetActiveWeapon()
+        local hasValidWeapon = IsValid(activeWep)
+
+        if hasValidWeapon and TTTBots.Behaviors.AttackTarget.LookingCloseToTarget(bot, target) then
             if not TTTBots.Behaviors.AttackTarget.WillShootingTeamkill(bot, target) then
                 loco:StartAttack()
             end
@@ -149,6 +155,15 @@ function RoiderAttack.OnRunning(bot)
 
     -- Force crowbar equipped
     RoiderAttack.EquipCrowbar(bot)
+
+    -- If the bot has no valid active weapon, bail out to avoid NULL entity errors
+    -- in the Roider addon's EntityTakeDamage hook.
+    local activeWep = bot:GetActiveWeapon()
+    if not IsValid(activeWep) then
+        local loco = bot:BotLocomotor()
+        if loco then loco:StopAttack() end
+        return STATUS.RUNNING
+    end
 
     -- Determine if we can see/shoot the target
     local canShoot = lib.CanShoot(bot, target)

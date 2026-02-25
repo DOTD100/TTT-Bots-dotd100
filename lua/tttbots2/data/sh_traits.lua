@@ -264,23 +264,34 @@ TTTBots.Traits = {
             focus = 2.0,             -- the gain/loss rate of focus when attacking
         }
     },
-    assassin = { -- TODO: Implement this featuer.
+    assassin = {
         name = "assassin",
-        description = "Likes to use knives when traitor. Unimplemented",
-        conflicts = {},
-        traitor_only = false,
+        description = "Prefers buying a knife from the shop, hunting isolated targets, and stabbing from behind.",
+        conflicts = { "sniper", "camper" },
+        traitor_only = true,
+        archetype = A.Stoic,
         effects = {
-            ignoreOrders = true,
-            useKnives = true,
+            ignoreOrders = true,   -- Works alone, not with the team
+            useKnives = true,      -- Prioritizes buying a knife from the shop
+            loner = true,          -- Prefer unpopular nav areas (where isolated targets are)
+            focus = 1.8,           -- Very focused aim when attacking
+            hearing = 1.2,         -- Good situational awareness
+            investigateCorpse = 0, -- Never lingers near corpses
+            difficulty = 3,
         }
     },
-    bodyburner = { -- TODO: Implement this feature.
+    bodyburner = {
         name = "bodyburner",
-        description = "Utilizes the flare gun to burn bodies as a traitor. Unimplemented",
-        conflicts = {},
-        traitor_only = false,
+        description = "Buys a flare gun and burns corpses after kills to destroy evidence.",
+        conflicts = { "passive", "pacifist" },
+        traitor_only = true,
+        archetype = A.Bad,
         effects = {
-            bodyBurner = true,
+            bodyBurner = true,       -- Triggers flare gun purchase and burn behavior
+            investigateCorpse = 0,   -- Never searches corpses (destroys them instead)
+            ignoreOrders = false,
+            hearing = 1.1,
+            difficulty = 2,
         }
     },
     bodyguard = {
@@ -385,23 +396,28 @@ TTTBots.Traits = {
             follower = true, -- likes to follow players
         }
     },
-    disguiser = { -- TODO: Implement this feature.
+    disguiser = {
         name = "disguiser",
-        description = "Purchases a disguiser on T-rounds. Unimplemented",
+        description = "Buys the TTT2 disguiser on traitor rounds, hiding their name from other players.",
         conflicts = {},
         archetype = A.Tryhard,
         traitor_only = true,
         effects = {
             disguiser = true,
+            suspicionMe = 0.7,   -- Harder to suspect (blending in)
+            difficulty = 2,
         }
     },
-    radiohead = { -- TODO: Implement this feature.
+    radiohead = {
         name = "radiohead",
-        description = "As traitor, will utilize radios to distract innocent players. Unimplemented",
+        description = "As traitor, buys and places radios to distract innocent players with sounds.",
         conflicts = { "deaf" },
+        archetype = A.Sus,
         traitor_only = true,
         effects = {
             radio = true,
+            hearing = 1.2,       -- Good awareness of sound mechanics
+            difficulty = 1,
         }
     },
     deaf = {
