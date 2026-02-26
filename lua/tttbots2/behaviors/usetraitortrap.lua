@@ -72,10 +72,12 @@ end
 function UseTraitorTrap.CountNearbyVictims(bot, pos, range)
     local victims = {}
     local nonAllies = TTTBots.Roles.GetNonAllies(bot)
-    for _, ply in pairs(nonAllies) do
+    local rangeSqr = range * range
+    for i = 1, #nonAllies do
+        local ply = nonAllies[i]
         if not (IsValid(ply) and lib.IsPlayerAlive(ply)) then continue end
-        if ply:GetPos():Distance(pos) <= range then
-            table.insert(victims, ply)
+        if ply:GetPos():DistToSqr(pos) <= rangeSqr then
+            victims[#victims + 1] = ply
         end
     end
     return #victims, victims
@@ -89,10 +91,12 @@ end
 function UseTraitorTrap.CountNearbyAllies(bot, pos, range)
     local count = 0
     local allies = TTTBots.Roles.GetLivingAllies(bot)
-    for _, ply in pairs(allies) do
+    local rangeSqr = range * range
+    for i = 1, #allies do
+        local ply = allies[i]
         if ply == bot then continue end
         if not (IsValid(ply) and lib.IsPlayerAlive(ply)) then continue end
-        if ply:GetPos():Distance(pos) <= range then
+        if ply:GetPos():DistToSqr(pos) <= rangeSqr then
             count = count + 1
         end
     end
@@ -107,13 +111,14 @@ function UseTraitorTrap.FindBestButton(bot)
     local botPos = bot:GetPos()
     local bestButton = nil
     local bestScore = -math.huge
+    local scanRangeSqr = UseTraitorTrap.SCAN_RANGE * UseTraitorTrap.SCAN_RANGE
 
     for _, btn in pairs(buttons) do
         if not UseTraitorTrap.IsButtonUsable(btn) then continue end
 
         local btnPos = btn:GetPos()
-        local dist = botPos:Distance(btnPos)
-        if dist > UseTraitorTrap.SCAN_RANGE then continue end
+        local distSqr = botPos:DistToSqr(btnPos)
+        if distSqr > scanRangeSqr then continue end
 
         -- Score this button: more victims nearby = better, closer = better, allies nearby = bad
         local victimCount = UseTraitorTrap.CountNearbyVictims(bot, btnPos, UseTraitorTrap.VICTIM_RANGE)
@@ -122,7 +127,7 @@ function UseTraitorTrap.FindBestButton(bot)
         local allyCount = UseTraitorTrap.CountNearbyAllies(bot, btnPos, UseTraitorTrap.VICTIM_RANGE)
         if allyCount > 0 then continue end -- Don't activate traps near allies
 
-        local score = (victimCount * 10) - (dist / 100)
+        local score = (victimCount * 10) - (math.sqrt(distSqr) / 100)
         if score > bestScore then
             bestScore = score
             bestButton = btn
@@ -136,7 +141,8 @@ end
 ---@param bot Bot
 ---@return boolean
 function UseTraitorTrap.Validate(bot)
-    if not lib.GetConVarBool("traitor_trap") then return false end -- This behavior is disabled per the user's choice.
+    -- Check if traitor traps are enabled via cvar
+    if not lib.GetConVarBool("traitor_trap") then return false end
     if not TTTBots.Match.IsRoundActive() then return false end
     if not UseTraitorTrap.IsTraitorTeam(bot) then return false end
 

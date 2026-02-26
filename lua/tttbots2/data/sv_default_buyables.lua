@@ -107,9 +107,7 @@ Registry.Knife = {
             ply:SubtractCredits(cost)
         end
 
-        TTTBots.Buyables._suppressTEBN = true
         ply:Give(cls)
-        TTTBots.Buyables._suppressTEBN = false
     end,
     OnBuy = function(ply)
         ply.tttbots_boughtKnife = true
@@ -437,15 +435,13 @@ timer.Create("TTTBots.Buyables.CreditWatcher", 3, 0, function()
             credits = bot:GetCredits() or 0
         end
 
-        -- If they have credits available, buy armor (suppress TEBN)
+        -- If they have credits available, buy armor
         if credits > 0 then
-            TTTBots.Buyables._suppressTEBN = true
             if bot.GiveEquipmentItem then
                 bot:GiveEquipmentItem("item_ttt_armor")
             elseif EQUIP_ARMOR then
                 bot:GiveEquipmentItem(EQUIP_ARMOR)
             end
-            TTTBots.Buyables._suppressTEBN = false
             bot.tttbots_hasArmor = true
 
             -- Deduct the credit

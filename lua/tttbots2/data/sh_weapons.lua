@@ -14,7 +14,6 @@
 ---   guns). Kind 2 (WEAPON_PISTOL) → secondary. Unknown → primary (safe default).
 ---
 --- Bot purchases use ply:Give() which bypasses TTT2's OrderEquipment pipeline.
---- TEBN_ItemBought net messages are suppressed during bot buys.
 ---
 --- To add weapons: just add the SWEP class name to the appropriate list below.
 --- To add a new shop: add a new entry to ShopWeaponLists keyed by the base
@@ -34,17 +33,26 @@ ShopWeaponLists[ROLE_TRAITOR] = {
     "ttt_thomas_swep",
     "weapon_ttt_sipistol",
     "weapon_ttt_silm4a1",
+	"weapon_ttt_gauss_rifle",
+	"weapon_ttt_predator_blade",
+	"weapon_ttt_awp",
+	"weapon_ttt_jihad_bomb",
+	"weapon_ttt_dragon_elites",
+	"weapon_ttt_ttt2_minethrower",
 }
 
 --- Detective shop weapons (also used by detective subroles: Sheriff, etc.)
 ShopWeaponLists[ROLE_DETECTIVE] = {
     "weapon_ttt_stungun",
     "weapon_ttt_p90",
+	"weapon_ttt_dragon_elites",
+	"weapon_ttt_ttt2_minethrower",
 }
 
 --- Jackal, Bandit, Survivalist, etc. are independent base roles (not subroles)
 --- so they have their own ROLE_ constants. Map them to the shop they actually use.
 --- Add entries here when a role uses another role's shop.
+--- if ROLE_NEW then ShopAliases[ROLE_NEW] = ROLE_DETECTIVE/TRAITOR end
 local ShopAliases = {}
 
 if ROLE_JACKAL then ShopAliases[ROLE_JACKAL] = ROLE_DETECTIVE end
@@ -188,48 +196,6 @@ local function getClaimedSet(baseIdx)
 end
 
 ---------------------------------------------------------------------------
--- TEBN suppression: block TEBN_ItemBought net messages during bot buys
----------------------------------------------------------------------------
-
-local suppressTEBN = false
-local suppressingNetMessage = false
-
---- Wrap net.Start to block TEBN_ItemBought while any suppression flag is true.
---- Also intercepts subsequent net.Write*/net.Send/net.Broadcast calls when a
---- message was suppressed, preventing GMod errors from writing to no active message.
-local origNetStart = origNetStart or net.Start
-local origNetSend = origNetSend or net.Send
-local origNetBroadcast = origNetBroadcast or net.Broadcast
-
-net.Start = function(messageName, ...)
-    if messageName == "TEBN_ItemBought" then
-        local centralSuppress = TTTBots.Buyables and TTTBots.Buyables._suppressTEBN
-        if suppressTEBN or centralSuppress then
-            suppressingNetMessage = true
-            return
-        end
-    end
-    suppressingNetMessage = false
-    return origNetStart(messageName, ...)
-end
-
-net.Send = function(...)
-    if suppressingNetMessage then
-        suppressingNetMessage = false
-        return
-    end
-    return origNetSend(...)
-end
-
-net.Broadcast = function(...)
-    if suppressingNetMessage then
-        suppressingNetMessage = false
-        return
-    end
-    return origNetBroadcast(...)
-end
-
----------------------------------------------------------------------------
 -- Registration: single universal Buyable that uses base role auto-detection
 ---------------------------------------------------------------------------
 
@@ -350,11 +316,6 @@ TTTBots.Buyables.RegisterBuyable({
             if credits < cost then return end -- can't afford
             ply:SubtractCredits(cost)
         end
-
-        -- Suppress TEBN during the Give call
-        suppressTEBN = true
-        ply:Give(cls)
-        suppressTEBN = false
 
         -- Register as PrimaryWeapon so the bot prefers it over ground loot
         if isPrimary then

@@ -7,6 +7,7 @@ local lib = TTTBots.Lib
 local InvestigateNoise = TTTBots.Behaviors.InvestigateNoise
 InvestigateNoise.Name = "Investigate Noise"
 InvestigateNoise.Description = "Investigates suspicious noises, with urgency for active gunfights"
+InvestigateNoise.Interruptible = true
 
 InvestigateNoise.INVESTIGATE_CATEGORIES = {
     Gunshot = true,
@@ -77,6 +78,10 @@ end
 function InvestigateNoise.OnRunning(bot)
     local loco = bot:BotLocomotor()
 
+    -- Abort investigation if the bot is under attack or has a combat target
+    if bot.attackTarget and IsValid(bot.attackTarget) then return STATUS.FAILURE end
+    if bot.lastHurtTime and (CurTime() - bot.lastHurtTime) < 3 then return STATUS.FAILURE end
+
     -- Priority 1: If we can see the source of a sound, just look at it
     local closestVisible = InvestigateNoise.FindClosestSound(bot, true)
     if closestVisible then
@@ -126,6 +131,10 @@ end
 
 function InvestigateNoise.Validate(bot)
     if not TTTBots.Match.IsRoundActive() then return false end
+    -- Bail out if the bot has an attack target or was recently damaged —
+    -- self-defense takes priority over investigating sounds.
+    if bot.attackTarget and IsValid(bot.attackTarget) then return false end
+    if bot.lastHurtTime and (CurTime() - bot.lastHurtTime) < 3 then return false end
     -- Valid if we hear any interesting sounds OR there's an active gunfight
     if #InvestigateNoise.GetInterestingSounds(bot) > 0 then return true end
     if InvestigateNoise.GetUrgentGunfight(bot) then return true end

@@ -101,7 +101,8 @@ local function defendPossibleFriend(victim, offender)
 
         if not defender.attackTarget then
             Bodyguard.SetAttackTarget(defender, offender)
-            defender:BotMemory():UpdateKnownPositionFor(offender, offender:GetPos())
+            local memory = defender:BotMemory()
+            if memory then memory:UpdateKnownPositionFor(offender, offender:GetPos()) end
         end
     end
 end

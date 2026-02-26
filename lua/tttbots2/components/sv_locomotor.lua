@@ -2,7 +2,7 @@
 This component is how the bot gets to something. It does not create the paths, it just follows them.
 ]]
 ---@class CLocomotor : Component
-TTTBots.Components.Locomotor = {}
+TTTBots.Components.Locomotor = TTTBots.Components.Locomotor or {}
 
 local lib = TTTBots.Lib
 ---@class CLocomotor : Component
@@ -672,16 +672,17 @@ function BotLocomotor:AvoidPlayers()
     local pos = self.bot:GetPos()
     local nearbyClumpCenter = Vector(0, 0, 0)
     local nearbyClumpCount = 0
+    local thresholdSqr = 45 * 45
 
-    for _, other in pairs(plys) do
+    for i = 1, #plys do
+        local other = plys[i]
         if other == self.bot then continue end
         if self.bot.attackTarget == other then continue end -- Don't try to avoid someone we want to kill. Duh!
         if not lib.IsPlayerAlive(other) then continue end
 
         local plypos = other:GetPos()
-        local dist = pos:Distance(plypos)
 
-        if dist < 45 then
+        if pos:DistToSqr(plypos) < thresholdSqr then
             nearbyClumpCenter = nearbyClumpCenter + plypos
             nearbyClumpCount = nearbyClumpCount + 1
         end
@@ -876,7 +877,7 @@ function BotLocomotor:TryUnstick()
                 self._propShoveCount = (self._propShoveCount or 0) + 1
 
                 -- Look at the prop center to aim our attack
-                local propPos = fwdEnt:WorldSpaceCenter and fwdEnt:WorldSpaceCenter() or fwdEnt:GetPos()
+                local propPos = fwdEnt.WorldSpaceCenter and fwdEnt:WorldSpaceCenter() or fwdEnt:GetPos()
                 self:LookAt(propPos)
 
                 -- After 3+ failed shoves on a breakable, switch to crowbar for more damage
@@ -1970,5 +1971,6 @@ end
 ---@return CLocomotor
 function plyMeta:BotLocomotor()
     ---@cast self Bot
+    if not self.components then return nil end
     return self.components.locomotor
 end

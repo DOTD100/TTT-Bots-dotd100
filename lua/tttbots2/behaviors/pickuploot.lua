@@ -119,18 +119,21 @@ end)
 ---@return Entity|nil
 function PickupLoot.FindNearestLoot(bot)
     local botPos = bot:GetPos()
-    local best, bestDist = nil, math.huge
+    local best = nil
+    local bestDistSqr = math.huge
+    local maxDistSqr = PickupLoot.MaxSearchDist * PickupLoot.MaxSearchDist
 
-    for _, ent in ipairs(PickupLoot.LootCache) do
+    for i = 1, #PickupLoot.LootCache do
+        local ent = PickupLoot.LootCache[i]
         if not PickupLoot.IsLootWeapon(ent) then continue end
-        local d = botPos:Distance(ent:GetPos())
-        if d < bestDist and d < PickupLoot.MaxSearchDist then
-            bestDist = d
+        local d = botPos:DistToSqr(ent:GetPos())
+        if d < bestDistSqr and d < maxDistSqr then
+            bestDistSqr = d
             best = ent
         end
     end
 
-    return best, bestDist
+    return best, best and math.sqrt(bestDistSqr) or math.huge
 end
 
 ---------------------------------------------------------------------------

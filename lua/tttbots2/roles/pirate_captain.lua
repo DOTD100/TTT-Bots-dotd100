@@ -27,14 +27,14 @@ local allyTeams = {
 local _bh = TTTBots.Behaviors
 local _prior = TTTBots.Behaviors.PriorityNodes
 
---- Behavior tree: The Captain drops the contract near a non-pirate player
---- first, then stalks and fights for whatever team the new master belongs to.
+--- Behavior tree: The Captain is aggressive — stalks, fights, and uses
+--- traps when available. The Contract giving is handled by the addon's
+--- own Use mechanics, so the bot just needs to interact with nearby players.
 local bTree = {
     _prior.FightBack,           -- Always fight back when attacked
     _prior.Restore,             -- Heal / pick up weapons
-    _bh.DropContract,           -- Drop contract near a non-pirate player
-    _bh.Stalk,                  -- Stalk players to find targets
-    _bh.Interact,               -- Use interactables
+    _bh.Stalk,                  -- Stalk players to find a master / targets
+    _bh.Interact,               -- Use interactables (may trigger Contract give)
     _prior.Minge,               -- Occasional minging
     _prior.Investigate,         -- Investigate noises
     _prior.Patrol               -- Patrol / wander

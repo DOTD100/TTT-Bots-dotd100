@@ -1,5 +1,5 @@
 ---@class CInventory : Component
-TTTBots.Components.Inventory = {}
+TTTBots.Components.Inventory = TTTBots.Components.Inventory or {}
 
 local lib = TTTBots.Lib
 ---@class CInventory : Component
@@ -792,6 +792,7 @@ local plyMeta = FindMetaTable("Player")
 ---@return CInventory
 function plyMeta:BotInventory()
     ---@cast self Bot
+    if not self.components then return nil end
     return self.components.inventory
 end
 

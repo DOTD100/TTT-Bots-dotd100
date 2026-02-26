@@ -665,13 +665,19 @@ local LoadLang = function()
     Line("oh wow i remember my role now", A.Casual)
     Line("Something feels different... I remember.", A.Bad)
 
-    RegisterCategory("DroppedContract", P.IMPORTANT) -- When a Pirate Captain drops their contract near someone.
-    Line("Hey {{target}}, pick up this contract!", A.Default)
-    Line("{{target}}, I have an offer you can't refuse.", A.Default)
-    Line("Here, {{target}}. Take this contract and we'll fight for you.", A.Default)
-    Line("{{target}} pick this up, we'll be on your side", A.Casual)
-    Line("yo {{target}} grab the contract, we work for you now", A.Casual)
-    Line("{{target}}, a business proposition for you.", A.Bad)
+    RegisterCategory("CopycatTransformed", P.IMPORTANT) -- When a Copycat bot uses The Files to change role.
+    Line("Time for a new identity.", A.Default)
+    Line("I've studied the files. I know what to do now.", A.Default)
+    Line("New role, new me.", A.Default)
+    Line("The files told me everything I needed.", A.Default)
+    Line("just read through the files... interesting", A.Casual)
+    Line("switching things up", A.Casual)
+    Line("lol time to be someone else", A.Casual)
+    Line("Now I have all the power I need.", A.Bad)
+    Line("Your secrets are mine now.", A.Bad)
+    Line("what do these files say?? oh cool", A.Dumb)
+    Line("Enough studying. Time to act.", A.Hothead)
+    Line("Finally. A role worth playing.", A.Tryhard)
 
 
     -----------------------------------------------------------

@@ -3,7 +3,7 @@ This module is not intended to store everything bot-related, but instead store b
 is refreshed every round. Things like where the bot last saw each player, etc.
 ]]
 ---@class CMemory : Component
-TTTBots.Components.Memory = {}
+TTTBots.Components.Memory = TTTBots.Components.Memory or {}
 TTTBots = TTTBots or {}
 
 TTTBots.Sound = {
@@ -69,6 +69,7 @@ local FORGET = {
 }
 
 FORGET.GetRememberTime = function(ply)
+    if not (ply.components and ply.components.personality) then return FORGET.Base end
     local traits = ply.components.personality.traits
     local base = FORGET.Base
     local variance = FORGET.Variance
@@ -322,16 +323,18 @@ function Memory:UpdatePlayerLifeStates()
     end
 
     if isOmniscient then
-        -- Traitors know who is dead and who is alive, so first set everyone to dead.
-        for i, ply in pairs(player.GetAll()) do
-            if ply == bot then continue end
-            self:SetPlayerLifeState(ply, DEAD)
+        -- Build a fast lookup of alive players
+        local aliveSet = {}
+        for i = 1, #CurrentlyAlive do
+            aliveSet[CurrentlyAlive[i]] = true
         end
 
-        -- Then set everyone that is alive to alive.
-        for i, ply in pairs(CurrentlyAlive) do
+        -- Single pass: set alive or dead based on lookup
+        local allPlys = player.GetAll()
+        for i = 1, #allPlys do
+            local ply = allPlys[i]
             if ply == bot then continue end
-            self:SetPlayerLifeState(ply, ALIVE)
+            self:SetPlayerLifeState(ply, aliveSet[ply] and ALIVE or DEAD)
         end
     end
 end
@@ -343,11 +346,14 @@ function Memory:SawPlayerRecently(ply)
 end
 
 function Memory:GetRecentlySeenPlayers(withinSecs)
-    local withinSecs = withinSecs or 5
+    withinSecs = withinSecs or 5
     local players = {}
-    for i, ply in pairs(player.GetAll()) do
-        if self:SawPlayerRecently(ply) then
-            table.insert(players, ply)
+    local allPlys = player.GetAll()
+    for i = 1, #allPlys do
+        local ply = allPlys[i]
+        local pnp = self.playerKnownPositions[ply:Nick()]
+        if pnp and pnp.timeSince() < withinSecs then
+            players[#players + 1] = ply
         end
     end
     return players
@@ -357,10 +363,13 @@ end
 ---@return table<Vector> positions [Player]=Vector
 function Memory:GetKnownPlayersPos()
     local positions = {}
-    for i, ply in pairs(player.GetAll()) do
+    local allPlys = player.GetAll()
+    for i = 1, #allPlys do
+        local ply = allPlys[i]
         local pnp = self.playerKnownPositions[ply:Nick()]
-        if not pnp then continue end
-        positions[ply] = pnp.pos
+        if pnp then
+            positions[ply] = pnp.pos
+        end
     end
     return positions
 end
@@ -369,9 +378,11 @@ end
 ---@return table<Player> players
 function Memory:GetKnownAlivePlayers()
     local players = {}
-    for i, ply in pairs(player.GetAll()) do
+    local allPlys = player.GetAll()
+    for i = 1, #allPlys do
+        local ply = allPlys[i]
         if self:GetPlayerLifeState(ply) == ALIVE then
-            table.insert(players, ply)
+            players[#players + 1] = ply
         end
     end
     return players
@@ -381,9 +392,11 @@ end
 ---@return table<Player> players
 function Memory:GetActualAlivePlayers()
     local players = {}
-    for i, ply in pairs(player.GetAll()) do
+    local allPlys = player.GetAll()
+    for i = 1, #allPlys do
+        local ply = allPlys[i]
         if lib.IsPlayerAlive(ply) then
-            table.insert(players, ply)
+            players[#players + 1] = ply
         end
     end
     return players

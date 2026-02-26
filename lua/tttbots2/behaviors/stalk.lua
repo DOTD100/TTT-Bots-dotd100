@@ -126,7 +126,7 @@ function Stalk.OnRunning(bot)
     loco:SetGoal()
 
     local witnesses = lib.GetAllWitnessesBasic(targetPos, TTTBots.Roles.GetNonAllies(bot), bot)
-    if table.Count(witnesses) <= 1 then
+    if #witnesses <= 1 then
         if math.random(1, 3) == 1 then -- Just some extra randomness for fun!
             bot:SetAttackTarget(target)
             return STATUS.SUCCESS

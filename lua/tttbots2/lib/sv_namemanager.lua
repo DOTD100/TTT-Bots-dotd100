@@ -95,7 +95,14 @@ function Lib.GetFirstUnusedName(names, makeLower)
 end
 
 -- regex to select all text:
-function Lib.GenerateName()
+local MAX_NAME_ATTEMPTS = 50
+function Lib.GenerateName(depth)
+    depth = depth or 0
+    if depth >= MAX_NAME_ATTEMPTS then
+        -- Fallback: generate a guaranteed-unique name with timestamp
+        return "Bot_" .. math.random(10000, 99999) .. "_" .. os.time()
+    end
+
     local GetCVB = Lib.GetConVarBool
 
     local customName = Lib.GetFirstUnusedName(Lib.GetCustomNames(), false)
@@ -165,14 +172,14 @@ function Lib.GenerateName()
     -- Check if name exists already before returning
     for _, ply in pairs(player.GetAll()) do
         if ply:GetName():lower() == name:lower() then
-            return Lib.GenerateName()
+            return Lib.GenerateName(depth + 1)
         end
     end
 
     local result = prefix .. name
 
     if Lib.CheckNameInUse(result) then
-        return Lib.GenerateName()
+        return Lib.GenerateName(depth + 1)
     end
 
     return result

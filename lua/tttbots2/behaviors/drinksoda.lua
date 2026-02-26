@@ -104,7 +104,9 @@ end
 ---@return Entity|nil, number
 function DrinkSoda.FindNearestSoda(bot)
     local botPos = bot:GetPos()
-    local best, bestDist = nil, math.huge
+    local best = nil
+    local bestDistSqr = math.huge
+    local maxDistSqr = DrinkSoda.MaxSearchDist * DrinkSoda.MaxSearchDist
 
     -- First try from cached locations
     for i = #DrinkSoda.KnownSodas, 1, -1 do
@@ -113,28 +115,30 @@ function DrinkSoda.FindNearestSoda(bot)
             -- Soda was consumed or removed — clean from cache
             table.remove(DrinkSoda.KnownSodas, i)
         else
-            local d = botPos:Distance(entry.pos)
-            if d < bestDist and d < DrinkSoda.MaxSearchDist then
-                bestDist = d
+            local d = botPos:DistToSqr(entry.pos)
+            if d < bestDistSqr and d < maxDistSqr then
+                bestDistSqr = d
                 best = entry.ent
             end
         end
     end
 
-    -- Fallback: live scan in case cache missed some
-    if not best then
-        local sodas = ents.FindByClass("ttt_super_soda*")
-        for _, ent in ipairs(sodas) do
-            if not DrinkSoda.IsValidSoda(ent) then continue end
-            local d = botPos:Distance(ent:GetPos())
-            if d < bestDist and d < DrinkSoda.MaxSearchDist then
-                bestDist = d
-                best = ent
+    -- Fallback: refresh cache once if we missed, don't scan every tick
+    if not best and not DrinkSoda._cacheRefreshedThisRound then
+        DrinkSoda._cacheRefreshedThisRound = true
+        DrinkSoda.CacheSodaLocations()
+        -- Retry with refreshed cache
+        for _, entry in ipairs(DrinkSoda.KnownSodas) do
+            if not DrinkSoda.IsValidSoda(entry.ent) then continue end
+            local d = botPos:DistToSqr(entry.pos)
+            if d < bestDistSqr and d < maxDistSqr then
+                bestDistSqr = d
+                best = entry.ent
             end
         end
     end
 
-    return best, bestDist
+    return best, best and math.sqrt(bestDistSqr) or math.huge
 end
 
 ---------------------------------------------------------------------------
@@ -262,6 +266,7 @@ hook.Add("TTTBeginRound", "TTTBots.DrinkSoda.Reset", function()
     -- Re-resolve convar each round in case addon was loaded/reloaded
     convarLookedUp = false
     cachedMaxConvar = nil
+    DrinkSoda._cacheRefreshedThisRound = false
 
     -- Cache soda locations shortly after round start.
     -- Sodas spawn when the prep phase ends (i.e. TTTBeginRound), so a small

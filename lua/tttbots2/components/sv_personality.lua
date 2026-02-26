@@ -1,5 +1,5 @@
 ---@class CPersonality : Component
-TTTBots.Components.Personality = {}
+TTTBots.Components.Personality = TTTBots.Components.Personality or {}
 
 local lib = TTTBots.Lib
 ---@class CPersonality : Component
@@ -378,7 +378,9 @@ end
 ---@param attribute string
 ---@return number
 function plyMeta:GetTraitMult(attribute)
-    local traits = self:BotPersonality():GetTraitData()
+    local personality = self:BotPersonality()
+    if not personality then return 1 end
+    local traits = personality:GetTraitData()
     local total = 1
     if not traits then return total end
     for i, trait in pairs(traits) do
@@ -388,7 +390,9 @@ function plyMeta:GetTraitMult(attribute)
 end
 
 function plyMeta:GetTraitAdditive(attribute)
-    local traits = self:BotPersonality():GetTraitData()
+    local personality = self:BotPersonality()
+    if not personality then return 0 end
+    local traits = personality:GetTraitData()
     local total = 0
     if not traits then return total end
     for i, trait in pairs(traits) do
@@ -402,7 +406,9 @@ end
 ---@param falseHasPriority boolean|nil Defaults to true. Should we escape early if we have a trait that conflicts with this attribute (aka is false)?
 function plyMeta:GetTraitBool(attribute, falseHasPriority)
     if falseHasPriority == nil then falseHasPriority = true end
-    local traits = self:BotPersonality():GetTraitData()
+    local personality = self:BotPersonality()
+    if not personality then return false end
+    local traits = personality:GetTraitData()
     local total = false
     if not traits then return total end
     for i, trait in pairs(traits) do
@@ -421,7 +427,9 @@ end
 ---@param trait_name string
 ---@return boolean hasTrait
 function plyMeta:HasTrait(trait_name)
-    local traits = self:BotPersonality():GetTraits()
+    local personality = self:BotPersonality()
+    if not personality then return false end
+    local traits = personality:GetTraits()
     for _, trait in ipairs(traits) do
         if trait == trait_name then
             return true
@@ -435,7 +443,9 @@ end
 ---@param hashtable table<string, boolean>
 ---@return boolean hasTrait
 function plyMeta:HasTraitIn(hashtable)
-    local traits = self:BotPersonality():GetTraits()
+    local personality = self:BotPersonality()
+    if not personality then return false end
+    local traits = personality:GetTraits()
     for _, trait in ipairs(traits) do
         if hashtable[trait] then
             return true
@@ -557,5 +567,6 @@ end)
 ---@return CPersonality
 function plyMeta:BotPersonality()
     ---@cast self Bot
+    if not self.components then return nil end
     return self.components.personality
 end

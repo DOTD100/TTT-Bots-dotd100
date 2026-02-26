@@ -132,7 +132,7 @@ function CreateSidekick.OnRunning(bot)
     loco:SetGoal()
 
     local witnesses = lib.GetAllWitnessesBasic(targetPos, TTTBots.Roles.GetNonAllies(bot), bot)
-    if table.Count(witnesses) <= 1 then
+    if #witnesses <= 1 then
         inv:PauseAutoSwitch()
         local equipped = inv:EquipJackalGun()
         if not equipped then return STATUS.RUNNING end

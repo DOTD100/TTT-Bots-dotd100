@@ -7,7 +7,17 @@ timer.Create("TTTBots.Match.UpdateBotsTable", 1, 0, function()
     TTTBots.Bots = {}
     for i, v in pairs(player.GetAll()) do
         if v:IsBot() then
-            table.insert(TTTBots.Bots, v)
+            if v.initialized and v.components then
+                table.insert(TTTBots.Bots, v)
+            elseif v.zombie_check_time == nil then
+                -- First time seeing this uninitialized bot; give it a grace period
+                -- (CreateBot may still be running component constructors)
+                v.zombie_check_time = CurTime() + 10
+            elseif CurTime() > v.zombie_check_time then
+                -- Bot has been uninitialized for over 10 seconds — it's a zombie, kick it
+                print(string.format("[TTT Bots 2] Kicking zombie bot '%s' (no components after 10s grace period)", v:Nick()))
+                v:Kick("Zombie bot cleanup")
+            end
         end
     end
 end)

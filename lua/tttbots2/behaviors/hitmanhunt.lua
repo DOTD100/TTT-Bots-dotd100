@@ -100,7 +100,7 @@ function HitmanHunt.OnRunning(bot)
 
     local nonAllies = TTTBots.Roles.GetNonAllies(bot)
     local witnesses = lib.GetAllWitnessesBasic(botPos, nonAllies, bot)
-    local witnessCount = table.Count(witnesses)
+    local witnessCount = #witnesses
     local elapsed = CurTime() - (bot.hitmanHuntStart or CurTime())
     local outOfPatience = elapsed > HitmanHunt.PATIENCE_TIME
 

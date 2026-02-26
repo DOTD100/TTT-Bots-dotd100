@@ -168,7 +168,7 @@ function Shank.OnRunning(bot)
     -- Check witnesses: abort stealth approach if too many people watching
     local nonAllies = TTTBots.Roles.GetNonAllies(bot)
     local witnesses = lib.GetAllWitnessesBasic(botPos, nonAllies, bot)
-    local witnessCount = table.Count(witnesses)
+    local witnessCount = #witnesses
 
     ---------------------------------------------------------------------------
     -- PHASE: STALK — approach the target, staying at distance

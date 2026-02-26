@@ -40,6 +40,27 @@ function BeggarScavenge.IsShopItem(ent)
     return false
 end
 
+--- Cached list of shop items on the ground, updated every 2 seconds.
+BeggarScavenge.ShopItemCache = {}
+
+function BeggarScavenge.UpdateShopItemCache()
+    BeggarScavenge.ShopItemCache = {}
+    for _, ent in ipairs(ents.GetAll()) do
+        if BeggarScavenge.IsShopItem(ent) then
+            BeggarScavenge.ShopItemCache[#BeggarScavenge.ShopItemCache + 1] = ent
+        end
+    end
+end
+
+timer.Create("TTTBots.BeggarScavenge.CacheUpdate", 2, 0, function()
+    if not TTTBots.Match.IsRoundActive() then return end
+    BeggarScavenge.UpdateShopItemCache()
+end)
+
+hook.Add("TTTBeginRound", "TTTBots.BeggarScavenge.Reset", function()
+    BeggarScavenge.ShopItemCache = {}
+end)
+
 --- Find the nearest shop item on the ground.
 ---@param bot Bot
 ---@return Entity|nil item
@@ -48,14 +69,17 @@ function BeggarScavenge.FindNearestShopItem(bot)
     local botPos = bot:GetPos()
     local bestItem, bestDist = nil, math.huge
 
-    for _, ent in ipairs(ents.GetAll()) do
-        if BeggarScavenge.IsShopItem(ent) then
-            local d = botPos:Distance(ent:GetPos())
-            if d < bestDist then
-                bestDist = d
-                bestItem = ent
-            end
+    for _, ent in ipairs(BeggarScavenge.ShopItemCache) do
+        if not BeggarScavenge.IsShopItem(ent) then continue end
+        local d = botPos:DistToSqr(ent:GetPos())
+        if d < bestDist then
+            bestDist = d
+            bestItem = ent
         end
+    end
+
+    if bestItem then
+        bestDist = math.sqrt(bestDist)
     end
 
     return bestItem, bestDist

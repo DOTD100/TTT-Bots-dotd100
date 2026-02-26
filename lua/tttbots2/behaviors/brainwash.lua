@@ -131,7 +131,7 @@ function Brainwash.OnRunning(bot)
 
     -- Only shoot when few witnesses are around (must be sneaky)
     local witnesses = lib.GetAllWitnessesBasic(targetPos, TTTBots.Roles.GetNonAllies(bot), bot)
-    if table.Count(witnesses) <= 1 then
+    if #witnesses <= 1 then
         inv:PauseAutoSwitch()
         local equipped = inv:EquipSlaveDeagle()
         if not equipped then return STATUS.RUNNING end

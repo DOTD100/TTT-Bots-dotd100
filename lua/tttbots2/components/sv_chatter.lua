@@ -294,6 +294,6 @@ end)
 local plyMeta = FindMetaTable("Player")
 function plyMeta:BotChatter()
     ---@cast self Bot
-    local comp = self.components.chatter
-    return comp
+    if not self.components then return nil end
+    return self.components.chatter
 end

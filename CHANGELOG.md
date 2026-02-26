@@ -6,14 +6,13 @@ A massive feature overhaul focused on TTT2 custom role support, combat improveme
 
 ### Added Roles Support
 
-- **Psychopath**, **Bandit**, **Executioner**, **Roider**, **Brainwasher**, **Slave**, **Shanker**, **Hidden**, **Fuse**, **Beggar**, **Necromancer**, **Pirate/Captain**, **Mesmerist**, **Cursed**, **Swapper**, **Loot Goblin**, **Amnesiac**
+- **Psychopath**, **Bandit**, **Executioner**, **Roider**, **Brainwasher**, **Slave**, **Shanker**, **Hidden**, **Fuse**, **Beggar**, **Necromancer**, **Pirate/Captain**, **Mesmerist**, **Cursed**, **Swapper**, **Loot Goblin**, **Amnesiac**, **Copycat**, **Arsonist**
 
 ### Fixes/Improvement/Optimizations:
 
 - Now reads from `sh_weapons.lua` for the user-defined weapon list for the bot to buy from the shop. More details will be explained in the wiki, but the comments and example weapon list should help in adding your own weapon. Do note bots struggle with complex weapons such as remote controlled trap, manual weapon tracking (such as air-to-surface missile). Traitor shop enforces per-round weapon uniqueness across aliased roles. Detective shop exempt (pool too small). Wraps around when all options exhausted.
 - Detective-shop roles now buys health station and coordinate in order to not buy duplicate health station. Can be controlled through the convar `ttt_bot_healthstation` (default "1").
 - Universal armor purchasing, controlled through `ttt_bot_armor` convar (default "1"). Bots prioritize weapons over armor if starting with 1 credits, and can buy armor mid round if they earn more credits.
-- **TEBN suppression**: All bot purchases suppress Team Buy Equipment Notifications via `net.Start` wrapper.
 - Bots now detect and pickup dropped shop/equipment weapons. Innocents and traitor alike also announce in chat upon pickup.
 - Bots are now able to use Traitor Trap buttons! However, it seems to be rather rare for them to do so and only if there are non-ally in range.
 - Super soda cans can now be interacted if detected by the bots.
@@ -25,7 +24,7 @@ A massive feature overhaul focused on TTT2 custom role support, combat improveme
 - Bots will now crouch jump if unable to reach a spot or is stuck, along with shooting and falling back to the crowbar if still stuck. Miscellaneous navigation fixes.
 - C4 planting and defusing reworked. Bots will take 3 seconds to plant the bomb when there's no one nearby and flee the area once successfully planted. However, if someone was to catch them red-handed, then it's not going to end up well for them. Bots with a defuser will take priority in defusing the bomb compared to one with no defuser, and will overwrite other tasks depending on proximity and timer. 33% success rate in defusing the bomb implemented.
 - Hook ID collision fix. `deputy.lua` and `sidekick.lua` were both registering hooks with the same unique ID (`"TTTBotsOnWitnessFireBullets"` / `"TTTBotsOnWitnessHurt"`), causing whichever loaded last to silently overwrite the other. Fixed with unique IDs per role.
-- Various operator precedence bugs and boolean inversions corrected across multiple files.
+- Various operator precedence bugs and Boolean inversions corrected across multiple files.
 
 ## v1.3.4
 

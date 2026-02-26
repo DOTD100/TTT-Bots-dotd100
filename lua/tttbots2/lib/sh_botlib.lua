@@ -2,8 +2,8 @@ TTTBots.Lib = TTTBots.Lib or {}
 
 if SERVER then
     include("tttbots2/lib/sv_namemanager.lua")
-    -- Import components for bot creation
-    TTTBots.Components = {}
+    -- Import components for bot creation (use 'or' to avoid wiping on double-include)
+    TTTBots.Components = TTTBots.Components or {}
     include("tttbots2/components/sv_locomotor.lua")
     include("tttbots2/components/sv_obstacletracker.lua")
     include("tttbots2/components/sv_inventory.lua")
@@ -11,6 +11,30 @@ if SERVER then
     include("tttbots2/components/sv_memory.lua")
     include("tttbots2/components/sv_morality.lua")
     include("tttbots2/components/sv_chatter.lua")
+
+    -- Cache local references to component classes immediately after include.
+    -- This protects createPlayerBot from anything that might wipe TTTBots.Components
+    -- later (double-includes, addon conflicts, table resets, etc.)
+    local _CachedLocomotor = TTTBots.Components.Locomotor
+    local _CachedObstacleTracker = TTTBots.Components.ObstacleTracker
+    local _CachedInventory = TTTBots.Components.Inventory
+    local _CachedPersonality = TTTBots.Components.Personality
+    local _CachedMemory = TTTBots.Components.Memory
+    local _CachedMorality = TTTBots.Components.Morality
+    local _CachedChatter = TTTBots.Components.Chatter
+
+    --- Returns cached component classes for bot creation (immune to global table wipes)
+    function TTTBots.Lib.GetComponentClasses()
+        return {
+            Locomotor = _CachedLocomotor,
+            ObstacleTracker = _CachedObstacleTracker,
+            Inventory = _CachedInventory,
+            Personality = _CachedPersonality,
+            Memory = _CachedMemory,
+            Morality = _CachedMorality,
+            Chatter = _CachedChatter,
+        }
+    end
 end
 
 TTTBots.Lib.BASIC_VIS_RANGE = 4000 --- Threshold to be considred for the :VisibleVec function in a basic visibility check.
@@ -102,7 +126,7 @@ local function UpdateIsolationCache(bot, other)
     local DISTANCE_FACTOR = -0.001 -- Distance penalty per hammer unit to bot
 
     local witnesses = TTTBots.Lib.GetAllWitnessesBasic(other:EyePos(), TTTBots.Roles.GetNonAllies(bot), bot)
-    isolation = isolation + (VISIBLE_FACTOR * table.Count(witnesses))
+    isolation = isolation + (VISIBLE_FACTOR * #witnesses)
     isolation = isolation + (DISTANCE_FACTOR * bot:GetPos():Distance(other:GetPos()))
     isolation = isolation + (VISIBLE_ME_FACTOR * (bot:Visible(other) and 1 or 0))
     isolation = isolation + (math.random(-3, 3) / 10) -- Add a bit of randomness to the isolation
@@ -311,16 +335,16 @@ end
 ---@param ignorePly Player|nil a player to ignore in the check, if any
 ---@realm shared
 function TTTBots.Lib.GetAllWitnessesBasic(pos, playerTbl, ignorePly)
-    local RANGE = TTTBots.Lib.BASIC_VIS_RANGE
+    local RANGE_SQR = TTTBots.Lib.BASIC_VIS_RANGE * TTTBots.Lib.BASIC_VIS_RANGE
     local witnesses = {}
     playerTbl = playerTbl or TTTBots.Lib.GetAlivePlayers()
-    for i, ply in pairs(playerTbl) do
+    for i = 1, #playerTbl do
+        local ply = playerTbl[i]
         if ply == NULL or not IsValid(ply) then continue end
-        if ply:GetPos():Distance(pos) <= RANGE then
-            if ply == ignorePly then continue end
-            local sawthat = ply:VisibleVec(pos)
-            if sawthat then
-                table.insert(witnesses, ply)
+        if ply == ignorePly then continue end
+        if ply:GetPos():DistToSqr(pos) <= RANGE_SQR then
+            if ply:VisibleVec(pos) then
+                witnesses[#witnesses + 1] = ply
             end
         end
     end
@@ -334,11 +358,12 @@ end
 ---@realm shared
 function TTTBots.Lib.GetAllWitnesses(pos, botsOnly)
     local witnesses = {}
-    for _, ply in ipairs(botsOnly and TTTBots.Bots or player.GetAll()) do
-        if TTTBots.Lib.IsPlayerAlive(ply) and IsValid(ply) then
-            local sawthat = TTTBots.Lib.CanSeeArc(ply, pos, 90)
-            if sawthat then
-                table.insert(witnesses, ply)
+    local plys = botsOnly and TTTBots.Bots or player.GetAll()
+    for i = 1, #plys do
+        local ply = plys[i]
+        if IsValid(ply) and TTTBots.Lib.IsPlayerAlive(ply) then
+            if TTTBots.Lib.CanSeeArc(ply, pos, 90) then
+                witnesses[#witnesses + 1] = ply
             end
         end
     end
@@ -734,15 +759,16 @@ function TTTBots.Lib.GetAllVisible(pos, nonTeammatesOnly, caller)
         return {}
     end
     local witnesses = {}
-    for _, ply in ipairs(player.GetAll()) do
+    local allPlys = player.GetAll()
+    for i = 1, #allPlys do
+        local ply = allPlys[i]
         if TTTBots.Lib.IsPlayerAlive(ply) then
             if nonTeammatesOnly and caller then
                 -- Only include non-allies
                 if TTTBots.Roles.IsAllies(caller, ply) then continue end
             end
-            local sawthat = ply:VisibleVec(pos)
-            if sawthat then
-                table.insert(witnesses, ply)
+            if ply:VisibleVec(pos) then
+                witnesses[#witnesses + 1] = ply
             end
         end
     end
@@ -847,17 +873,54 @@ local notifiedSlots = false
 local notifiedNavmesh = false
 
 local function createPlayerBot(botname)
+    -- Use cached component class references (immune to TTTBots.Components being wiped).
+    -- GetComponentClasses() was set up right after the include() calls, so these are
+    -- guaranteed to be the classes that were loaded, even if something later resets the globals.
+    local C = TTTBots.Lib.GetComponentClasses and TTTBots.Lib.GetComponentClasses()
+    if not C then
+        print("[TTT Bots 2] Cannot create bot: GetComponentClasses is not available (component system not loaded).")
+        return nil
+    end
+
+    -- Pre-flight: verify all component classes are loaded before creating the engine entity.
+    local requiredClasses = {"Locomotor","ObstacleTracker","Inventory","Personality","Memory","Morality","Chatter"}
+    for _, className in ipairs(requiredClasses) do
+        if not C[className] or not C[className].New then
+            print(string.format("[TTT Bots 2] Cannot create bot: Component '%s' is not loaded!", className))
+            -- Diagnostic: also report what TTTBots.Components has for comparison
+            local globalVal = TTTBots.Components and TTTBots.Components[className]
+            print(string.format("  (cached=%s, global=%s)", tostring(C[className]), tostring(globalVal)))
+            return nil
+        end
+    end
+
     local bot = player.CreateNextBot(botname)
 
-    bot.components = {
-        locomotor = TTTBots.Components.Locomotor:New(bot),
-        obstacletracker = TTTBots.Components.ObstacleTracker:New(bot),
-        inventory = TTTBots.Components.Inventory:New(bot),
-        personality = TTTBots.Components.Personality:New(bot),
-        memory = TTTBots.Components.Memory:New(bot),
-        morality = TTTBots.Components.Morality:New(bot),
-        chatter = TTTBots.Components.Chatter:New(bot),
-    }
+    if bot == nil or bot == false or not IsValid(bot) then
+        return nil
+    end
+
+    -- Wrap component initialization so we can clean up the bot entity if anything fails.
+    -- Without this, a failed constructor leaves a "zombie" bot that occupies a player slot
+    -- but has no .components or .initialized, causing cascading nil errors everywhere.
+    local initOk, initErr = pcall(function()
+        bot.components = {
+            locomotor = C.Locomotor:New(bot),
+            obstacletracker = C.ObstacleTracker:New(bot),
+            inventory = C.Inventory:New(bot),
+            personality = C.Personality:New(bot),
+            memory = C.Memory:New(bot),
+            morality = C.Morality:New(bot),
+            chatter = C.Chatter:New(bot),
+        }
+    end)
+
+    if not initOk then
+        -- Component init failed — kick the bot so it doesn't occupy a slot as a zombie
+        print(string.format("[TTT Bots 2] Component init failed for '%s', removing zombie bot. Error: %s", botname, tostring(initErr)))
+        bot:Kick("Component initialization failed")
+        return nil
+    end
 
     local dvlpr = TTTBots.Lib.GetDebugFor("misc")
     if dvlpr then
@@ -902,6 +965,7 @@ function TTTBots.Lib.TestPlayerSlots()
         return false
     end
 
+    notifiedSlots = false -- Reset so warning can fire again if slots fill up later
     return true
 end
 
@@ -925,9 +989,14 @@ function TTTBots.Lib.CreateBot(name)
 
     -- Start initializing the bot
     name = name or TTTBots.Lib.GenerateName()
-    local failFunc = function()
-        print(TTTBots.Locale.GetLocalizedString("fail.create.bot"))
+    local failFunc = function(err)
+        local msg = "A bot could not be created. Please verify you are in a server (P2P or SRCDS) with sufficient player slots."
+        if TTTBots.Locale and TTTBots.Locale.GetLocalizedString then
+            msg = TTTBots.Locale.GetLocalizedString("fail.create.bot") or msg
+        end
+        print(msg)
         print("Below is the error:")
+        print(err)
         print(debug.traceback())
     end
     local success, bot = xpcall(function() return createPlayerBot(name) end, failFunc, name)
@@ -1193,11 +1262,23 @@ function TTTBots.Lib.MetersToHU(meters)
     return meters / conversionDiv
 end
 
+-- ConVar object cache: avoids rebuilding the "ttt_bot_" .. name string
+-- and calling GetConVar() on every access. ConVars don't change object
+-- identity at runtime, only their values change.
+local _cvarCache = {}
+local function _getCvar(name)
+    local cv = _cvarCache[name]
+    if cv then return cv end
+    cv = GetConVar("ttt_bot_" .. name)
+    _cvarCache[name] = cv
+    return cv
+end
+
 -- Wrapper for "ttt_bot_" + name convars
 -- Prepends "ttt_bot_" to the name of the convar, and returns the boolean value of the convar.
 ---@realm shared
 function TTTBots.Lib.GetConVarBool(name)
-    local cvar = GetConVar("ttt_bot_" .. name)
+    local cvar = _getCvar(name)
     if not cvar then print(name) end
     return cvar:GetBool()
 end
@@ -1206,21 +1287,21 @@ end
 -- Prepends "ttt_bot_" to the name of the convar, and returns the string value of the convar.
 ---@realm shared
 function TTTBots.Lib.GetConVarString(name)
-    return GetConVar("ttt_bot_" .. name):GetString()
+    return _getCvar(name):GetString()
 end
 
 --- Wrapper for "ttt_bot_" + name convars
 --- Prepends "ttt_bot_" to the name of the convar, and returns the integer value of the convar.
 ---@realm shared
 function TTTBots.Lib.GetConVarInt(name)
-    return GetConVar("ttt_bot_" .. name):GetInt()
+    return _getCvar(name):GetInt()
 end
 
 --- Wrapper for "ttt_bot_" + name convars
 --- Prepends "ttt_bot_" to the name of the convar, and returns the float value of the convar.
 ---@realm shared
 function TTTBots.Lib.GetConVarFloat(name)
-    return GetConVar("ttt_bot_" .. name):GetFloat()
+    return _getCvar(name):GetFloat()
 end
 
 ---@realm shared

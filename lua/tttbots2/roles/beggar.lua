@@ -106,7 +106,9 @@ hook.Add("Think", "TTTBots.Beggar.ConversionCheck", function()
         if not (bot.GetSubRole and bot:GetSubRole() == ROLE_BEGGAR) then continue end
 
         local team = bot:GetTeam()
-        if team == TEAM_JESTER or team == "jesters" then continue end
+        -- Pre-conversion: Beggar has unknownTeam=true so GetTeam() returns
+        -- TEAM_NONE, not TEAM_JESTER. Check for both.
+        if team == TEAM_JESTER or team == "jesters" or team == TEAM_NONE or team == "none" then continue end
 
         -- Already handled this conversion?
         if bot.beggarConvertedTeam == team then continue end
@@ -128,19 +130,6 @@ hook.Add("TTTBeginRound", "TTTBots.Beggar.RoundReset", function()
         bot.beggarConvertedTeam = nil
         bot.beggarConverted = nil
         bot.tttbots_btreeOverride = nil
-    end
-end)
-
---- Suppress suspicion against Beggars (same as Jester)
-hook.Add("TTTBotsModifySuspicion", "TTTBots.beggar.sus", function(bot, target, reason, mult)
-    if not (IsValid(target) and target:IsPlayer()) then return end
-    local role = target:GetRoleStringRaw()
-    if role == "beggar" then
-        -- Pre-conversion: treat like jester (low suspicion)
-        local team = target:GetTeam()
-        if team == TEAM_JESTER or team == "jesters" then
-            return mult * 0.2
-        end
     end
 end)
 

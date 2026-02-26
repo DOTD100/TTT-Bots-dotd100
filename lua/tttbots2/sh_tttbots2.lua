@@ -12,12 +12,14 @@ end
 
 if not gamemodeCompatible() then return end
 
--- Declare TTTBots table
+-- Declare TTTBots table (preserve existing sub-tables like Components on re-run)
+local _existingComponents = TTTBots and TTTBots.Components
 TTTBots = {
     Version = "v1.3.5",
     Tickrate = 5, -- Ticks per second. Do not change unless you really know what you're doing.
     Lib = {},
-    Chat = {}
+    Chat = {},
+    Components = _existingComponents, -- Preserve component classes across re-includes
 }
 
 function TTTBots.Chat.MessagePlayer(ply, message)
@@ -121,7 +123,8 @@ function TTTBots.Reload()
                     component:Think()
                 end
 
-                bot.tick = bot:BotLocomotor().tick
+                local loco = bot:BotLocomotor()
+                bot.tick = loco and loco.tick or 0
                 bot.timeInGame = (bot.timeInGame or 0) + (1 / TTTBots.Tickrate)
             end
             TTTBots.Lib.UpdateBotModels()
@@ -137,6 +140,7 @@ function TTTBots.Reload()
     hook.Add("StartCommand", "TTTBots_StartCommand", function(ply, cmd)
         if ply:IsBot() then
             local bot = ply
+            if not (bot.initialized and bot.components) then return end
             local locomotor = bot:BotLocomotor()
 
             -- Update locomotor

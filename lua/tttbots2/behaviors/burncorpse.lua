@@ -170,7 +170,7 @@ function BurnCorpse.OnRunning(bot)
         -- Check witnesses — if too many people watching, abort
         local nonAllies = TTTBots.Roles.GetNonAllies(bot)
         local witnesses = lib.GetAllWitnessesBasic(botPos, nonAllies, bot)
-        if table.Count(witnesses) > 1 then
+        if #witnesses > 1 then
             -- Too many witnesses, skip burning and just leave
             return STATUS.FAILURE
         end
