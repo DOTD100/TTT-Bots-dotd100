@@ -39,6 +39,7 @@ local function includeServer()
     include("tttbots2/lib/sv_tree.lua")
     include("tttbots2/lib/sv_buyables.lua")
     include("tttbots2/lib/sv_roles.lua")
+    include("tttbots2/lib/sv_compat_hidden.lua")
 end
 
 --- Similar to includeSharedFile, will include the file if we're a client, otherwise will AddCSLuaFile it if we're a server.
