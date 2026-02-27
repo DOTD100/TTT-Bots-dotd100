@@ -1,8 +1,4 @@
---- CursedTag behavior for TTT Bots 2.
---- The Cursed must swap roles with another player to remove the curse.
---- This behavior finds an isolated player, chases them, and attempts to
---- "tag" them by pressing +USE when close enough. As a fallback, the bot
---- may also try to use the RoleSwap Deagle at range.
+--- CursedTag: find an isolated player and tag them with +USE to swap roles.
 ---
 --- The Cursed cannot deal damage and cannot win, so this is purely about
 --- getting close to someone and interacting with them.

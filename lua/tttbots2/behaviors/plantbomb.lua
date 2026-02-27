@@ -1,7 +1,4 @@
---- Plants a bomb in a safe location. Does not do anything if the bot does not have C4 in its inventory.
---- The bot equips C4, travels to a plant spot, holds the C4 visibly for ~3 seconds while "arming" it,
---- then drops/arms the C4 and immediately flees the area. During the arming phase the bot is
---- holding the C4 weapon, so other bots can catch them red-handed.
+--- PlantBomb: equip C4, travel to a plant spot, arm it, then flee.
 
 
 TTTBots.Behaviors.PlantBomb = {}
@@ -353,7 +350,7 @@ function PlantBomb.PlaceAndArmC4(bot, pos)
     local armTime = math.random(30, 90)
     c4:Arm(bot, armTime)
 
-    -- Store the planter reference on the C4 entity so witnesses/discoverers can identify who planted it
+    -- Track who planted this C4
     c4.oTTTBotsPlanter = bot
 
     -- Mark the planter as red-handed for a longer duration than the standard kill red-handed timer.

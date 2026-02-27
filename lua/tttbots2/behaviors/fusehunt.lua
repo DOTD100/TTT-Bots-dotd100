@@ -1,7 +1,4 @@
---- Fuse-specific behavior: urgently hunt and kill targets before the fuse timer expires.
---- The Fuse is a traitor subrole that must get a kill every ~60 seconds
---- or self-destructs in an explosion. The bot should always be aggressively
---- seeking kills, getting more desperate as the timer runs low.
+--- FuseHunt: urgently hunt targets before the fuse timer expires.
 
 ---@class BFuseHunt
 TTTBots.Behaviors.FuseHunt = {}

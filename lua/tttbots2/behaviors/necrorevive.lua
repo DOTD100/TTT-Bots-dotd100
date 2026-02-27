@@ -1,11 +1,4 @@
---- NecroRevive behavior for TTT Bots 2.
---- Necromancer-specific revival: uses the necro's special defibrillator to
---- revive ANY dead player's corpse (not just allies). Revived players become
---- zombies on TEAM_NECRO.
----
---- Unlike the standard Defib behavior which only revives allies, this behavior
---- targets all corpses. The Necromancer actively seeks out dead bodies to build
---- its zombie army.
+--- NecroRevive: revive any corpse as a zombie using the Necromancer's defibrillator.
 
 ---@class BNecroRevive
 TTTBots.Behaviors.NecroRevive = {}

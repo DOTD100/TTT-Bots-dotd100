@@ -326,12 +326,9 @@ hook.Add("PlayerDeath", "TTTBots.Components.Morality.PlayerDeath", function(vict
     local isIndirectKill = not victim:Visible(attacker)
     local isC4Kill = weapon and IsValid(weapon) and weapon.GetClass and weapon:GetClass() == "ttt_c4"
 
-    -- C4 explosion kills: bots don't magically know who planted the bomb.
-    -- Only bots who ALREADY had the planter flagged as suspicious (from seeing
-    -- them hold C4, witnessing the arming, etc.) connect the dots and escalate
-    -- their suspicion. Everyone else just reacts to the explosion itself.
+    -- C4/indirect kills: only bots who already suspected the planter escalate.
     if isC4Kill or isIndirectKill then
-        -- Try to identify the planter (for internal tracking only, NOT for omniscient suspicion)
+        -- Try to identify the planter
         local planter = nil
         if isC4Kill and IsValid(weapon) then
             planter = weapon.oTTTBotsPlanter
@@ -347,9 +344,7 @@ hook.Add("PlayerDeath", "TTTBots.Components.Morality.PlayerDeath", function(vict
             end
         end
 
-        -- Only bots who already suspected the planter get a suspicion bump.
-        -- This means the planter had to have been spotted holding C4, seen arming,
-        -- or otherwise accumulated suspicion BEFORE the explosion.
+        -- Only escalate for bots who already had the planter flagged
         if IsValid(planter) and planter:IsPlayer() and lib.IsPlayerAlive(planter) then
             for _, bot in pairs(TTTBots.Bots) do
                 if not (IsValid(bot) and lib.IsPlayerAlive(bot)) then continue end
@@ -367,9 +362,7 @@ hook.Add("PlayerDeath", "TTTBots.Components.Morality.PlayerDeath", function(vict
             end
         end
 
-        -- For indirect kills we still skip the normal direct-kill witness system below,
-        -- but NOT the proximity death reaction — nearby bots should still react to
-        -- seeing someone drop dead right next to them.
+        -- Skip direct-kill witness system; proximity reaction still runs below.
     end
 
     if not isIndirectKill and not isC4Kill then
@@ -390,10 +383,7 @@ hook.Add("PlayerDeath", "TTTBots.Components.Morality.PlayerDeath", function(vict
         end
     end
 
-    -- Proximity-based death reaction.
-    -- Any bot standing close to the victim should react even if they weren't
-    -- looking at the attacker. Hearing a gunshot + seeing someone drop dead
-    -- right next to you would make anyone react.
+    -- Nearby bots react to seeing someone die close to them
     local DEATH_REACT_RANGE = 600
     local victimPos = victim:GetPos()
     local vicIsTraitor = victim:GetTeam() == TEAM_TRAITOR
@@ -401,35 +391,28 @@ hook.Add("PlayerDeath", "TTTBots.Components.Morality.PlayerDeath", function(vict
     for _, bot in pairs(TTTBots.Bots) do
         if not (IsValid(bot) and lib.IsPlayerAlive(bot)) then continue end
         if bot == attacker or bot == victim then continue end
-        if bot.attackTarget ~= nil then continue end -- Already fighting someone
+        if bot.attackTarget ~= nil then continue end
 
         local dist = bot:GetPos():Distance(victimPos)
         if dist > DEATH_REACT_RANGE then continue end
 
-        -- Bot must be able to see the corpse location (no reacting through walls)
         if not bot:VisibleVec(victimPos + Vector(0, 0, 16)) then continue end
 
-        -- If the victim was NOT a traitor, instantly attack the killer
         if not vicIsTraitor then
-            -- Only attack if we're not allies with the attacker
             if not TTTBots.Roles.IsAllies(bot, attacker) then
                 bot:SetAttackTarget(attacker)
 
-                -- Also update memory so we know where the attacker is
                 local memory = bot.components.memory
                 if memory then
                     memory:UpdateKnownPositionFor(attacker, attacker:GetPos())
                 end
 
-                -- Call KOS on the killer
                 local chatter = bot:BotChatter()
                 if chatter then
                     chatter:On("CallKOS", { player = attacker:Nick(), playerEnt = attacker })
                 end
             end
         end
-        -- If the victim WAS a traitor, do nothing special — just resume.
-        -- The normal suspicion system already gives -10 (KillTraitor) to the attacker.
     end
 end)
 
@@ -508,12 +491,9 @@ function BotMorality:OnWitnessFireBullets(attacker, data, angleDiff)
     self:ChangeSuspicion(attacker, "ShotAt", sus)
 end
 
---- Called when a bullet passes very close to us (aimed within a tight angle).
---- If no one else is nearby that the shooter could plausibly be targeting, fight back.
---- Near misses are HIGH PRIORITY — being directly shot at overrides passive targets
---- from witnessing fights, suspicion, or hearing gunfire.
+--- Called when a bullet passes close to us. Fights back if the shot was likely aimed at us.
 ---@param attacker Player The player who fired
----@param aimAngleToMe number How many degrees the shot was aimed toward us (0 = dead on)
+---@param aimAngleToMe number Degrees between the shot direction and us (0 = dead on)
 function BotMorality:OnNearMiss(attacker, aimAngleToMe)
     if not lib.IsPlayerAlive(self.bot) then return end
     if attacker == self.bot then return end
@@ -525,11 +505,10 @@ function BotMorality:OnNearMiss(attacker, aimAngleToMe)
         return
     end
 
-    -- Very tight angle (under 5 degrees) means the shot is almost certainly aimed
-    -- at us — fight back immediately regardless of bystanders.
+    -- Under 5 degrees = almost certainly aimed at us
     local directlyAtMe = aimAngleToMe < 5
 
-    -- Check if there's anyone else near us that the shooter might actually be aiming at
+    -- Check for nearby bystanders the shooter might be targeting instead
     local nearbyPlayers = 0
     if not directlyAtMe then
         local allPlys = player.GetAll()
@@ -545,9 +524,7 @@ function BotMorality:OnNearMiss(attacker, aimAngleToMe)
         end
     end
 
-    -- Fight back if: shot was aimed right at us, OR we're relatively alone
     if directlyAtMe or nearbyPlayers <= 1 then
-        -- Mark the near miss time so hearing/LookAt systems defer to us
         self.bot.tttbots_nearMissTime = CurTime()
 
         self.bot:SetAttackTarget(attacker)
@@ -571,8 +548,6 @@ hook.Add("EntityFireBullets", "TTTBots.Components.Morality.FireBullets", functio
     if not TTTBots.Match.IsRoundActive() then return end
 
     local shooterPos = data.Src or entity:EyePos()
-    -- Use the actual bullet direction (includes weapon spread) rather than
-    -- GetAimVector() which is just the raw eye-forward vector.
     local shootDir = data.Dir or entity:GetAimVector()
 
     for i, bot in pairs(TTTBots.Bots) do
@@ -580,14 +555,12 @@ hook.Add("EntityFireBullets", "TTTBots.Components.Morality.FireBullets", functio
         if bot == entity then continue end
 
         local dist = shooterPos:Distance(bot:GetPos())
-        if dist > 1500 then continue end -- Quick range cull
+        if dist > 1500 then continue end
 
-        -- Check aim angle against multiple body points: head, center mass, and feet.
-        -- This ensures shots aimed at the lower body or head are detected, not just
-        -- shots aimed near WorldSpaceCenter.
+        -- Check aim angle against head, center mass, and feet
         local botCenter = bot:WorldSpaceCenter()
         local botEye = bot:EyePos()
-        local botFeet = bot:GetPos() + Vector(0, 0, 8) -- slightly above ground
+        local botFeet = bot:GetPos() + Vector(0, 0, 8)
 
         local bestAngle = 180
         for _, targetPos in ipairs({ botCenter, botEye, botFeet }) do
@@ -599,7 +572,6 @@ hook.Add("EntityFireBullets", "TTTBots.Components.Morality.FireBullets", functio
             end
         end
 
-        -- Near miss: shot aimed within 15 degrees of any part of the bot
         if bestAngle < 15 then
             local morality = bot:BotMorality()
             if morality then
@@ -607,7 +579,6 @@ hook.Add("EntityFireBullets", "TTTBots.Components.Morality.FireBullets", functio
             end
         end
 
-        -- Also run the original witness-based suspicion for bots that can SEE the shooter
         if lib.CanSeeArc(bot, shooterPos, 90) then
             local morality = bot:BotMorality()
             if morality then
@@ -623,8 +594,7 @@ hook.Add("PlayerHurt", "TTTBots.Components.Morality.PlayerHurt", function(victim
     if not (IsValid(attacker) and attacker:IsPlayer()) then return end
 
     if not victim:Visible(attacker) then
-        -- Indirect attack (C4, fire, etc.) -- bots don't magically know the planter.
-        -- Only a bot who already suspected the planter connects the dots.
+        -- Indirect attack — only blame C4 planter if already suspected
         if victim:IsBot() and victim.components and victim.components.morality then
             local victimPos = victim:GetPos()
             for c4, _ in pairs(TTTBots.Match.AllArmedC4s or {}) do
@@ -644,8 +614,7 @@ hook.Add("PlayerHurt", "TTTBots.Components.Morality.PlayerHurt", function(victim
                 end
             end
 
-            -- Even though we can't see the attacker, we know we got hurt.
-            -- If the attacker is close enough and not an ally, turn and fight.
+            -- Can't see attacker but got hurt — turn and fight if close enough
             if attacker ~= victim and not TTTBots.Roles.IsAllies(victim, attacker) then
                 local dist = victimPos:Distance(attacker:GetPos())
                 if dist < 1500 then
@@ -675,9 +644,7 @@ hook.Add("PlayerHurt", "TTTBots.Components.Morality.PlayerHurt", function(victim
         end
     end
 
-    -- Hearing-based reaction: bots who are nearby and can hear the fight but
-    -- can't see the attacker still react — they look toward the sound and
-    -- get a mild suspicion bump on the attacker.
+    -- Hearing-based reaction: nearby bots who can't see the attacker
     local HEAR_RANGE = 1250
     local attackerPos = attacker:GetPos()
     for _, bot in pairs(TTTBots.Bots) do
@@ -685,21 +652,18 @@ hook.Add("PlayerHurt", "TTTBots.Components.Morality.PlayerHurt", function(victim
         if bot == attacker or bot == victim then continue end
         if not bot.components or not bot.components.morality then continue end
 
-        -- Skip if they already witnessed it visually (handled above)
         if lib.CanSeeArc(bot, attacker:EyePos(), 90) then continue end
 
         local dist = bot:GetPos():Distance(attackerPos)
         if dist > HEAR_RANGE then continue end
 
-        -- Can hear but not see: look toward the fight and bump suspicion lightly
-        -- But defer to near-miss reaction if the bot was just shot at directly
+        -- Look toward the fight unless already reacting to a near-miss
         local loco = bot:BotLocomotor()
         local recentNearMiss = (bot.tttbots_nearMissTime or 0) + 3 > CurTime()
         if loco and bot.attackTarget == nil and not recentNearMiss then
             loco:LookAt(attackerPos + Vector(0, 0, 72))
         end
 
-        -- Update memory with the attacker's suspected position from sound
         if bot.components.memory then
             bot.components.memory:UpdateKnownPositionFor(attacker, attackerPos)
         end
@@ -883,14 +847,12 @@ local function noticeC4Holders(bot)
         if not (IsValid(other) and other ~= NULL and lib.IsPlayerAlive(other)) then continue end
         if TTTBots.Roles.GetRoleFor(other):GetAppearsPolice() then continue end
 
-        -- Check if this player is actively holding C4
+        -- Check if this player is visibly holding C4
         local activeWep = other:GetActiveWeapon()
         if not (IsValid(activeWep) and activeWep:GetClass() == "weapon_ttt_c4") then continue end
 
-        -- Check if we can see them
         if not TTTBots.Lib.CanSeeArc(bot, other:GetPos() + Vector(0, 0, 24), 90) then continue end
 
-        -- Spotted holding C4! Instant KOS suspicion and attack
         local morality = bot.components and bot.components.morality
         if morality then
             morality:ChangeSuspicion(other, "HoldingC4")
@@ -932,9 +894,7 @@ function plyMeta:BotMorality()
     return self.components.morality
 end
 
---- Hearing-based suspicion: Bots who hear gunfire from a known player build
---- suspicion on them even when they can't see the shooter. Bots also react
---- to nearby gunfights by looking toward the sound and moving to investigate.
+--- Hearing-based suspicion: bots react to gunfire they can hear but not see.
 timer.Create("TTTBots.Components.Morality.HearingReaction", 2, 0, function()
     if not TTTBots.Match.IsRoundActive() then return end
 

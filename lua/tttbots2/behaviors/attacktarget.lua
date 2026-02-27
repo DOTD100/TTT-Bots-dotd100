@@ -346,13 +346,12 @@ function Attack.CalculateInaccuracy(bot, origin, target)
     local rage = (personality:GetRage() * 2) + 1 -- float [1,3]
 
     local isTraitorFactor =
-        (bot:GetRoleStringRaw() == "traitor" and lib.GetConVarBool("cheat_traitor_accuracy"))
+        (bot:GetTeam() == TEAM_TRAITOR and lib.GetConVarBool("cheat_traitor_accuracy"))
         and 0.5 or 1
 
     local focus_factor = (1 - (bot.attackFocus or 0.01)) * 1.5
 
     local targetMoveFactor = 1
-    local selfMoveFactor = bot:GetVelocity():LengthSqr() > 100 and 1.25 or 0.75
     if not (IsValid(target) and target:IsPlayer()) then
         targetMoveFactor = 0.5
     else

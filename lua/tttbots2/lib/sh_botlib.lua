@@ -2,7 +2,7 @@ TTTBots.Lib = TTTBots.Lib or {}
 
 if SERVER then
     include("tttbots2/lib/sv_namemanager.lua")
-    -- Import components for bot creation (use 'or' to avoid wiping on double-include)
+    -- Import components for bot creation
     TTTBots.Components = TTTBots.Components or {}
     include("tttbots2/components/sv_locomotor.lua")
     include("tttbots2/components/sv_obstacletracker.lua")
@@ -12,9 +12,7 @@ if SERVER then
     include("tttbots2/components/sv_morality.lua")
     include("tttbots2/components/sv_chatter.lua")
 
-    -- Cache local references to component classes immediately after include.
-    -- This protects createPlayerBot from anything that might wipe TTTBots.Components
-    -- later (double-includes, addon conflicts, table resets, etc.)
+    -- Cache component classes locally (immune to later table wipes)
     local _CachedLocomotor = TTTBots.Components.Locomotor
     local _CachedObstacleTracker = TTTBots.Components.ObstacleTracker
     local _CachedInventory = TTTBots.Components.Inventory

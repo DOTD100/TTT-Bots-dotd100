@@ -1,6 +1,5 @@
---- ArsonistAttack behavior: Forces the bot to use the flamethrower (weapon_ttt2_arsonthrower)
---- as a hold-to-spray close-range weapon. The bot rushes targets and holds fire continuously.
---- Falls back to normal AttackTarget behavior if the flamethrower is unavailable.
+--- ArsonistAttack: hold-to-spray flamethrower behavior.
+--- Falls back to AttackTarget if flamethrower is unavailable.
 
 ---@class BArsonistAttack
 TTTBots.Behaviors.ArsonistAttack = {}

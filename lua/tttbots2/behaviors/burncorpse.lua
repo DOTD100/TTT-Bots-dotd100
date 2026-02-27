@@ -1,7 +1,4 @@
---- BurnCorpse behavior: Bots with the bodyBurner trait use a flare gun to burn
---- the corpses of players they recently killed, destroying evidence.
---- The bot will NOT search/confirm the corpse — it goes straight to burning.
---- After burning, the bot flees the area.
+--- BurnCorpse: use flare gun to burn victim corpses and destroy evidence.
 
 ---@class BBurnCorpse
 TTTBots.Behaviors.BurnCorpse = {}

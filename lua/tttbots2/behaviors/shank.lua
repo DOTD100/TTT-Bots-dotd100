@@ -1,7 +1,4 @@
---- Shanker-specific behavior: Hunt isolated players and stab them in the back.
---- Uses the shanker's backstab knife for instant kills from behind.
---- If the target turns around, switch to primary and gun them down.
---- After a kill, flee the scene immediately — never confirm the body.
+--- Shank: hunt isolated players and backstab them. Flee after kills.
 
 ---@class BShank
 TTTBots.Behaviors.Shank = {}

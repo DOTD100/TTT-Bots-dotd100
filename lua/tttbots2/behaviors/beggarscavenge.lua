@@ -1,8 +1,4 @@
---- Beggar-specific behavior: scavenge for shop items on the ground.
---- The Beggar starts as Team Jester (harmless, does no damage). Their goal
---- is to pick up a shop/equipment item dropped on the ground. When they do,
---- the role addon converts them to the dropper's team (innocent or traitor).
---- After conversion, this behavior returns SUCCESS so the btree re-evaluates.
+--- Beggar behavior: scavenge for dropped shop items to trigger team conversion.
 
 ---@class BBeggarScavenge
 TTTBots.Behaviors.BeggarScavenge = {}

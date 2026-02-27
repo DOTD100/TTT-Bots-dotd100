@@ -1,7 +1,4 @@
---- Hidden-specific behavior: Activate powers, then hunt while invisible.
---- The Hidden presses Reload to activate, gaining invisibility + knife + stun grenade.
---- Hunts isolated targets with the knife. If damaged (partially visible), flees
---- until invisibility returns. Never uses guns — knife only.
+--- HiddenHunt: activate invisibility, then hunt targets with knife only.
 
 ---@class BHiddenHunt
 TTTBots.Behaviors.HiddenHunt = {}

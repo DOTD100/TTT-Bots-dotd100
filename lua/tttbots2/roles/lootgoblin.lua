@@ -1,15 +1,6 @@
 --- Loot Goblin role support for TTT Bots 2.
---- Neutral role that is smaller and faster than everyone else but cannot deal
---- damage. The Loot Goblin wins if they survive to round end, and loses if
---- they die. When killed, they drop random traitor shop weapons as loot.
----
+--- Neutral role that cannot deal damage; wins by surviving to round end.
 --- Addon: https://github.com/sipcogames/ttt2-role_lootgoblin
---- Workshop: https://steamcommunity.com/sharedfiles/filedetails/?id=2710196952
----
---- Bot strategy:
----   AS the Loot Goblin: Pure survival — flee from everyone, hide, avoid combat.
----   AGAINST the Loot Goblin: High-priority target — everyone wants the loot.
----     The Loot Goblin overrides Jester protection so bots WILL attack them.
 
 if not TTTBots.Lib.IsTTT2() then return false end
 if not ROLE_LOOTGOBLIN then return false end
@@ -53,32 +44,21 @@ lootgoblin:SetCanSnipe(false)               -- Cannot deal damage
 lootgoblin:SetCanHide(true)                 -- Wants to HIDE — survival is the goal
 TTTBots.Roles.RegisterRole(lootgoblin)
 
----------------------------------------------------------------------------
--- Loot Goblin is a PRIORITY TARGET for all bots.
--- Override Jester protection so bots will actively hunt the Loot Goblin.
----------------------------------------------------------------------------
+-- Override Jester protection so bots will hunt the Loot Goblin.
 
---- Returns true if the player is a Loot Goblin.
 local function IsLootGoblin(ply)
     if not (IsValid(ply) and ply:IsPlayer()) then return false end
     local ok, role = pcall(ply.GetRoleStringRaw, ply)
     return ok and role == "lootgoblin"
 end
 
---- Override Jester protection: allow attacks on Loot Goblins.
---- This hook runs BEFORE the jester.lua protection hook because hook.Add
---- with a different name fires in registration order. We use a very early
---- return to explicitly allow attacking the Loot Goblin.
---- Note: TTTBotsCanAttack returns false to block, true/nil to allow.
 hook.Add("TTTBotsCanAttack", "TTTBots.lootgoblin.allowAttack", function(bot, target)
     if IsLootGoblin(target) then
-        return true -- Explicitly allow — overrides Jester protection
+        return true
     end
 end)
 
---- Actively hunt the Loot Goblin: periodically check if any bot can see a
---- Loot Goblin and doesn't already have a target, then set them to attack.
---- This makes the Loot Goblin a high-priority target that bots pursue on sight.
+--- Bots actively hunt visible Loot Goblins on sight.
 timer.Create("TTTBots.LootGoblin.HuntTarget", 1, 0, function()
     if not TTTBots.Match.IsRoundActive() then return end
 
@@ -111,13 +91,7 @@ timer.Create("TTTBots.LootGoblin.HuntTarget", 1, 0, function()
     end
 end)
 
----------------------------------------------------------------------------
--- Loot Goblin bot: flee from nearby players.
--- The Loot Goblin should treat every nearby player as a threat and run.
--- We simulate this by giving the Loot Goblin bot a fake "attacker" when
--- players get close, triggering FightBack (flee behavior).
----------------------------------------------------------------------------
-
+--- Loot Goblin bots flee from nearby visible players.
 timer.Create("TTTBots.LootGoblin.FleeNearby", 0.5, 0, function()
     if not TTTBots.Match.IsRoundActive() then return end
 

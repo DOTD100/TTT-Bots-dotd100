@@ -1,8 +1,4 @@
---- Behavior: DrinkSoda
---- Bots seek out and drink super soda cans (ttt2-super-soda addon).
---- Sodas are entities whose class contains "super_soda" spawned in the world.
---- Bots walk to them, look down at the can, and call entity:Use(bot) to drink.
---- Respects the max-sodas-per-player convar so bots don't exceed the limit.
+--- DrinkSoda: seek and drink super soda cans (ttt2-super-soda addon).
 ---
 --- Super soda cans spawn at round start by replacing ammo entities.
 --- We cache all soda locations shortly after round start so bots know

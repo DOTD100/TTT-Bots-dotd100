@@ -220,7 +220,7 @@ local ACT_RUNNING_HASH = {
         return STATUS.FAILURE
     end,
     [ACTIONS.PLANT] = function(bot, job)
-        bot:Give("weapon_ttt_c4")
+        if not bot:HasWeapon("weapon_ttt_c4") then return STATUS.FAILURE end
         return STATUS.SUCCESS
     end,
     [ACTIONS.ROAM] = function(bot, job)

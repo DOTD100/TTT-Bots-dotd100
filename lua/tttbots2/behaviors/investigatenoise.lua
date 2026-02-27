@@ -131,8 +131,7 @@ end
 
 function InvestigateNoise.Validate(bot)
     if not TTTBots.Match.IsRoundActive() then return false end
-    -- Bail out if the bot has an attack target or was recently damaged —
-    -- self-defense takes priority over investigating sounds.
+    -- Combat takes priority over investigating sounds
     if bot.attackTarget and IsValid(bot.attackTarget) then return false end
     if bot.lastHurtTime and (CurTime() - bot.lastHurtTime) < 3 then return false end
     -- Valid if we hear any interesting sounds OR there's an active gunfight

@@ -1,10 +1,4 @@
---- Behavior: PickupLoot
---- Bots seek out and pick up special shop items (traitor/detective weapons)
---- that have been dropped on the ground during the round. This covers loot
---- from killed Loot Goblins, dropped traitor/detective weapons, etc.
----
---- When picking up a traitor weapon, innocent-team bots announce it in chat
---- to avoid being KOS'd for holding a T weapon.
+--- PickupLoot: seek and pick up dropped shop items on the ground.
 
 TTTBots.Behaviors.PickupLoot = {}
 

@@ -1,9 +1,4 @@
---- PlaceRadio behavior: Bots with the radio trait deploy a radio in a spot
---- where innocent players congregate, then periodically trigger distraction
---- sounds remotely. The radio weapon in TTT works by placing it on the ground
---- (primary fire), which creates a ttt_radio entity that the owner can trigger.
---- Since bots can't use the radio's VGUI, we auto-trigger sounds via the
---- entity's PlaySound method after placement.
+--- PlaceRadio: deploy a radio and auto-trigger distraction sounds.
 
 ---@class BPlaceRadio
 TTTBots.Behaviors.PlaceRadio = {}

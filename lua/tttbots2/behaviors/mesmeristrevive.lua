@@ -1,8 +1,4 @@
---- MesmeristRevive behavior for TTT Bots 2.
---- Uses the Mesmerist's special defibrillator (weapon_ttt_mesdefi) to revive
---- ANY dead player's corpse, converting them into a Thrall on the traitor team.
---- The Mesmerist should be extra sneaky — reviving while witnessed is very risky
---- since it exposes the Mesmerist as a traitor.
+--- MesmeristRevive: use the Mesmerist's defibrillator to revive corpses as Thralls.
 
 ---@class BMesmeristRevive
 TTTBots.Behaviors.MesmeristRevive = {}

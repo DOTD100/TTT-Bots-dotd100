@@ -5,15 +5,11 @@ local lib = TTTBots.Lib
 ---@class CInventory : Component
 local BotInventory = TTTBots.Components.Inventory
 
---- Safe wrapper for SelectWeapon. Some weapon addons have buggy Deploy/Holster
---- callbacks that throw errors (e.g. passing wrong types to networked vars).
---- This prevents a single bad weapon from crashing the entire bot Think cycle.
---- If a weapon class errors, it is blacklisted so the bot never retries it.
+--- Safe wrapper for SelectWeapon. Blacklists weapon classes that error on Deploy/Holster.
 ---@param bot Player
 ---@param className string
 ---@return boolean success
 local function SafeSelectWeapon(bot, className)
-    -- Check blacklist first (per-bot table of weapon classes that errored)
     if not bot.tttbots_wepBlacklist then
         bot.tttbots_wepBlacklist = {}
     end
@@ -266,16 +262,6 @@ function BotInventory:GetWeaponInfo(wep)
     return info
 end
 
-function BotInventory:GetAllWeaponInfo()
-    local weapons = self.bot:GetWeapons()
-    local weapon_info = {}
-    for _, wep in pairs(weapons) do
-        local info = self:GetWeaponInfo(wep)
-        table.insert(weapon_info, info)
-    end
-    return weapon_info
-end
-
 --- get the first special (buyable) primary we have (aka, a buyable we should use as a primary)
 ---@return Weapon|nil wep The weapon object (not a wepinfo)
 function BotInventory:GetSpecialPrimary()
@@ -289,16 +275,6 @@ function BotInventory:GetSpecialPrimary()
     end
 end
 
----Return true if the bot has a valid WeaponInfo wep and it has > 0 bullets in the clip. Tests for nil.
----@param wepInfo WeaponInfo?
----@return boolean
-function BotInventory:WepInfoHasClip(wepInfo)
-    return (wepInfo and wepInfo.has_bullets and wepInfo.clip > 0) or false
-end
-
-function BotInventory:WepHasClip(wep)
-    return (wep and IsValid(wep) and wep:Clip1() > 0) or false
-end
 
 ---Get if the bots has no other weapons besides melee (false) or not (true)
 ---@param attackMode boolean Set to true if you want to check the weapons have ammo in reserve, not just in the clip
@@ -416,22 +392,6 @@ function BotInventory:ReloadIfNecessary()
     return reload
 end
 
---- Gives the bot weapon_ttt_c4 if he doesn't have it already.
-function BotInventory:GiveC4()
-    local hasC4 = false
-    local weapons = self.bot:GetWeapons()
-    for _, wep in pairs(weapons) do
-        if wep:GetClass() == "weapon_ttt_c4" then
-            hasC4 = true
-            break
-        end
-    end
-
-    if not hasC4 then
-        self.bot:Give("weapon_ttt_c4")
-    end
-end
-
 function BotInventory:PauseAutoSwitch()
     self.pauseAutoSwitch = true
 end
@@ -440,19 +400,16 @@ function BotInventory:ResumeAutoSwitch()
     self.pauseAutoSwitch = false
 end
 
---- Proactive reload: when the bot is idle (no attack target), cycle through all
---- guns and briefly switch to any weapon with a partial clip to reload it.
---- This prevents bots from entering a fight with half-empty magazines.
+--- When idle, switch to partially-loaded weapons to reload them.
 ---@return boolean reloading True if we switched to a weapon to reload it
 function BotInventory:ProactiveReload()
     local bot = self.bot
     if not lib.IsPlayerAlive(bot) then return false end
 
-    -- Don't do this if we're in combat or the auto-switch is paused
     if IsValid(bot.attackTarget) then return false end
     if self.pauseAutoSwitch then return false end
 
-    -- Throttle: only check every ~2 seconds to avoid constant weapon flickering
+    -- Throttle to avoid constant weapon flickering
     if (self._proactiveReloadNext or 0) > CurTime() then return false end
 
     -- If we're currently in the middle of a proactive reload, wait for it to finish
@@ -749,8 +706,11 @@ function BotInventory:EquipMelee()
 end
 
 function BotInventory:EquipGrenade()
-    return self:Equip("grenade")
+    local nade = self:GetGrenade()
+    if not nade then return false end
+    return SafeSelectWeapon(self.bot, nade:GetClass())
 end
+
 
 function BotInventory:GetInventoryString()
     local weapons = self.bot:GetWeapons()

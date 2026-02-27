@@ -74,8 +74,7 @@ end)
 
 CreateSharedConCommand("ttt_bot_kickall", function(ply, _, args)
     if not IsPlayerSuperAdmin(ply) then return end -- cmd only works as server or SA
-    -- Kick ALL bot entities, not just those tracked in TTTBots.Bots.
-    -- This ensures zombie bots (failed init, no .components) also get cleaned up.
+    -- Kick ALL bot entities, including any that failed init
     for _, bot in pairs(player.GetAll()) do
         if not IsValid(bot) then continue end
         if not bot:IsBot() then continue end

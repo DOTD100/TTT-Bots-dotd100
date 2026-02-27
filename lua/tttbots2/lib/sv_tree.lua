@@ -22,6 +22,7 @@ TTTBots.Behaviors.PriorityNodes = {
     --- Fight back vs the environment (blocking props) or other players.
     FightBack = {
         _bh.ClearBreakables,
+        _bh.ThrowGrenade,
         _bh.AttackTarget
     },
     --- Restore values, like health, ammo, etc.

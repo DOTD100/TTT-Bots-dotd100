@@ -102,22 +102,17 @@ function TTTBots.Roles.GenerateRegisterForRole(roleString)
             local copy = table.Copy(baseData)
             copy:SetName(roleString)
 
-            -- Override team and allied teams with the role's ACTUAL TTT2 team.
-            -- Without this, a role like Defective (traitor team, based on detective)
-            -- would inherit detective's innocent team, making them unable to fight each other.
+            -- Override team if the role's actual TTT2 team differs from the base role
             local actualTeam = roleObj.defaultTeam
             if actualTeam and actualTeam ~= baseData:GetTeam() then
                 copy:SetTeam(actualTeam)
-                -- Rebuild allied teams and roles around the actual team, not the base role's
                 copy:SetAlliedTeams({ [actualTeam] = true })
                 copy:SetAlliedRoles({ [roleString] = true })
-                -- Update team-dependent properties
                 copy:SetCanCoordinate(actualTeam == TEAM_TRAITOR)
                 copy:SetStartsFights(actualTeam == TEAM_TRAITOR)
                 copy:SetBTree(TTTBots.Behaviors.DefaultTreesByTeam[actualTeam] or copy:GetBTree())
                 print(string.format("[TTT Bots 2] Auto-registered role '%s' based off of '%s' (team overridden: %s -> %s)", roleString, baseRole.name, tostring(baseData:GetTeam()), tostring(actualTeam)))
             else
-                -- Even if same team, update allied roles to include this role's own name
                 local currentAllies = copy:GetAlliedRoles()
                 currentAllies[roleString] = true
                 copy:SetAlliedRoles(currentAllies)
