@@ -97,7 +97,7 @@ hook.Add("PostPlayerDeath", "TTTBots_SlaveRevertOnMasterDeath", function(deadPly
 
             -- This bot was a slave of the dead brainwasher and is now innocent.
             -- Inject traitor knowledge into their suspicion system.
-            local morality = bot.components and bot.components.Morality
+            local morality = bot.components and bot.components.morality
             if not morality then continue end
 
             -- The bot now uses suspicion again as an innocent
